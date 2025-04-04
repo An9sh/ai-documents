@@ -1,49 +1,72 @@
 import { DocumentMetadata } from "@/lib/types";
-import { Card } from "./ui/card";
-import { ScrollArea } from "./ui/scroll-area";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Trash2, CheckCircle2 } from "lucide-react";
 
 interface DocumentHistoryProps {
   documents: DocumentMetadata[];
-  onSelect: (documentId: string) => void;
-  currentId?: string;
+  selectedDocuments: DocumentMetadata[];
+  onDocumentSelect: (doc: DocumentMetadata) => void;
+  onDelete: (namespace: string) => Promise<void>;
 }
 
 export function DocumentHistory({
   documents,
-  onSelect,
-  currentId,
+  selectedDocuments,
+  onDocumentSelect,
+  onDelete,
 }: DocumentHistoryProps) {
+  if (documents.length === 0) {
+    return (
+      <div className="text-center text-gray-500 dark:text-gray-400">
+        No documents uploaded yet
+      </div>
+    );
+  }
+
   return (
-    <Card className="p-4">
-      <h2 className="text-lg font-semibold mb-4">Document History</h2>
-      {documents.length === 0 ? (
-        <p className="text-sm text-muted-foreground text-center py-4">
-          No documents uploaded yet.
-        </p>
-      ) : (
-        <ScrollArea className="h-[300px]">
-          {documents.map((doc) => (
-            <div
+    <div className="space-y-4">
+      <h2 className="text-xl font-semibold mb-4">Document History</h2>
+      <div className="space-y-2">
+        {documents.map((doc) => {
+          const isSelected = selectedDocuments.some((d) => d.id === doc.id);
+          return (
+            <Card
               key={doc.id}
-              className={`p-3 rounded-lg mb-2 transition-colors ${
-                currentId === doc.id ? "bg-primary/10" : "hover:bg-primary/5"
+              className={`p-4 cursor-pointer transition-colors ${
+                isSelected
+                  ? "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800"
+                  : "hover:bg-gray-50 dark:hover:bg-gray-800"
               }`}
+              onClick={() => onDocumentSelect(doc)}
             >
               <div className="flex items-center justify-between">
-                <div
-                  className="flex-1 cursor-pointer"
-                  onClick={() => onSelect(doc.id)}
+                <div className="flex-1">
+                  <div className="flex items-center space-x-2">
+                    <span className="font-medium">{doc.filename}</span>
+                    {isSelected && (
+                      <CheckCircle2 className="h-4 w-4 text-blue-500" />
+                    )}
+                  </div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    {doc.uploadedAt.toLocaleDateString()}
+                  </div>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDelete(doc.namespace);
+                  }}
                 >
-                  {doc.filename}
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  {new Date(doc.uploadedAt).toLocaleDateString()}
-                </div>
+                  <Trash2 className="h-4 w-4" />
+                </Button>
               </div>
-            </div>
-          ))}
-        </ScrollArea>
-      )}
-    </Card>
+            </Card>
+          );
+        })}
+      </div>
+    </div>
   );
 }
