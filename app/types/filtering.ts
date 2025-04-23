@@ -1,52 +1,64 @@
-export interface Certification {
+// export interface Certification {
+//   id: string;
+//   name: string;
+//   isRequired: boolean;
+// }
+
+import { ReactNode } from "react";
+
+// export interface License {
+//   id: string;
+//   name: string;
+//   isRequired: boolean;
+// }
+
+// export interface EducationRequirement {
+//   degree: string;
+//   field: string;
+//   required: boolean;
+// }
+
+// export interface ExperienceRequirement {
+//   skill: string;
+//   yearsRequired: number;
+//   required: boolean;
+// }
+
+export interface Category {
   id: string;
+  userId?: string;
   name: string;
-  isRequired: boolean;
-}
-
-export interface License {
-  id: string;
-  name: string;
-  isRequired: boolean;
-}
-
-export interface EducationRequirement {
-  degree: string;
-  field: string;
-  required: boolean;
-}
-
-export interface ExperienceRequirement {
-  skill: string;
-  yearsRequired: number;
-  required: boolean;
+  color: string;
+  threshold: number;
+  isCustom: boolean;
+  createdAt?: Date;
 }
 
 export interface FilteringRequirements {
   id: string;
+  userId: string;
   name: string;
   description: string;
+  categoryId: number;
   color: string;
-  certifications: Certification[];
-  licenses: License[];
-  educationRequirements: EducationRequirement[];
-  experienceRequirements: ExperienceRequirement[];
-  minimumYearsOverallExperience: number;
-  matchThreshold: number;
-  createdAt?: Date;
-  updatedAt?: Date;
-}
-
-export interface Category {
-  id: string;
-  name: string;
   threshold: number;
+  requirements: string[];
+  createdAt: Date;
+  matchThreshold: number;
+  category: string;
 }
 
-export const categories: Category[] = [
-  { id: 'software-engineer', name: 'Software Engineer', threshold: 70 },
-  { id: 'data-scientist', name: 'Data Scientist', threshold: 70 },
-  { id: 'product-manager', name: 'Product Manager', threshold: 70 },
-  { id: 'ux-designer', name: 'UX Designer', threshold: 70 },
-  { id: 'devops-engineer', name: 'DevOps Engineer', threshold: 70 },
-]; 
+export const getCategories = (customCategories: Category[]): Category[] => {
+  return [
+    {
+      id: '0',
+      userId: '0',
+      name: 'All Classifications',
+      color: '#6b7280',
+      threshold: 0,
+      isCustom: false,
+      createdAt: new Date()
+    },
+    ...customCategories
+  ];
+};

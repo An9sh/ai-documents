@@ -1,101 +1,169 @@
-import { DocumentMetadata } from "@/app/types";
-import { ClassificationRequirement, ParsedResume } from '../types/resume';
+import { DocumentMetadata } from "../../app/types";
+import { ClassificationRequirement, ParsedResume} from '../types/resume';
 
 export class MatchAPI {
   private static async analyzeDocument(
-    doc: DocumentMetadata,
-    requirement: ClassificationRequirement
+    doc: DocumentMetadata & { userId?: string },
+    requirement: ClassificationRequirement,
+    token: string,
+    maxRetries = 3,
+    retryDelay = 5000
   ): Promise<ParsedResume | null> {
-    try {
-      const question = this.buildQuestion(requirement);
-      console.log('Sending question to API:', question);
-      
-      const response = await fetch('/api/question', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          question,
-          documentIds: [doc.id],
-          userId: 'default-user'
-        }),
-      });
-
-      if (!response.ok) {
-        console.error(`Failed to analyze document ${doc.id}:`, response.statusText);
-        return null;
-      }
-
-      const data = await response.json();
-      console.log('Question API response:', data);
-
-      // Process the response from question route
-      if (!data || Object.keys(data).length === 0) {
-        console.error('Empty response from question API');
-        return null;
-      }
-
-      // Get the vector similarity score and normalize it
-      const vectorScore = data.score || 0;
-      const normalizedScore = Math.min(100, Math.max(0, vectorScore * 100));
-      console.log('Vector score:', vectorScore, 'Normalized score:', normalizedScore);
-
-      return {
-        id: doc.id,
-        name: doc.filename || 'Unknown Document',
-        classificationData: {
-          classifications: [{
-            requirementId: requirement.id,
-            score: normalizedScore,
-            confidence: vectorScore,
-            isPrimary: normalizedScore >= requirement.matchThreshold,
-            isSecondary: normalizedScore >= requirement.matchThreshold * 0.7,
-            details: {
-              certifications: { matched: [], missing: [] },
-              licenses: { matched: [], missing: [] },
-              education: { matched: [], missing: [] },
-              experience: { matched: [], missing: [] },
-              text: data.text || '',
-              metadata: {
-                documentId: doc.id,
-                filename: doc.filename || 'Unknown Document',
-                lines: data.lines || { from: 0, to: 0 },
-                userId: data.userId || 'default-user'
-              }
-            }
-          }]
-        }
-      };
-    } catch (error) {
-      console.error(`Error analyzing document ${doc.id}:`, error);
-      return null;
-    }
-  }
-
-  private static buildQuestion(requirement: ClassificationRequirement): string {
-    return `Analyze if this candidate matches the following requirements:
-      - ${requirement.name}
-      - Description: ${requirement.description}
-      - Certifications: ${requirement.certifications.map(c => c.name).join(', ')}
-      - Licenses: ${requirement.licenses.map(l => l.name).join(', ')}
-      - Education: ${requirement.educationRequirements.map(e => `${e.degree} in ${e.field} (${e.required ? 'Required' : 'Preferred'})`).join(', ')}
-      - Experience: ${requirement.experienceRequirements.map(e => `${e.skill} (${e.yearsRequired}+ years) (${e.required ? 'Required' : 'Preferred'})`).join(', ')}`;
-  }
-
-  public static async syncClassification(
-    documents: DocumentMetadata[],
-    requirement: ClassificationRequirement
-  ): Promise<ParsedResume[]> {
-    const results: ParsedResume[] = [];
+    let retries = 0;
+    let lastError: Error | null = null;
     
-    for (const doc of documents) {
-      const result = await this.analyzeDocument(doc, requirement);
-      if (result) {
-        results.push(result);
+    while (retries < maxRetries) {
+      try {
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+        const response = await fetch(`${baseUrl}/api/analyze`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            document: {
+              ...doc,
+              id: doc.id,
+              userId: doc.userId,
+            },
+            requirement
+          })
+        });
+
+        if (response.status === 404) {
+          console.log(`Document ${doc.pineconeId || doc.id} not found in index, retrying in ${retryDelay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, retryDelay));
+          retries++;
+          continue;
+        }
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const result = await response.json();
+        return result;
+      } catch (error) {
+        lastError = error as Error;
+        retries++;
+        if (retries < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, retryDelay));
+        }
       }
     }
+    console.error(`Failed to analyze document ${doc.pineconeId || doc.id} after ${maxRetries} attempts`, lastError);
+    return null;
+  }
 
+  // private static buildQuestion(requirement: ClassificationRequirement) {
+  //   if (requirement.category === 'normal') {
+  //     // For normal documents, use a simple question format
+  //     return `Which documents contain information about "${requirement.name}"? 
+  //     Specifically looking for documents that mention: ${requirement.requirements?.join(', ')}`;
+  //   }
+  // }
+
+  // public static async syncClassification(
+  //   documents: DocumentMetadata[],
+  //   requirement: ClassificationRequirement,
+  //   token: string,
+  //   userId: string
+  // ): Promise<ParsedResume[]> {
+  //   const results: ParsedResume[] = [];
+    
+  //   for (const doc of documents) {
+  //     const result = await this.analyzeDocument({ ...doc, userId }, requirement, token);
+  //     if (result) {
+  //       results.push(result);
+  //     }
+  //   }
+  //   return results;
+  // }
+
+  public static async autoClassifyDocuments(
+    documents: DocumentMetadata[],
+    requirements: ClassificationRequirement[],
+    token: string,
+    userId: string
+  ): Promise<Map<string, ParsedResume[]>> {
+    console.log('Starting autoClassifyDocuments with:', {
+      documentCount: documents.length,
+      requirementCount: requirements.length,
+      mode: documents.length === 1 ? 'single document' : 'batch',
+      operation: requirements.length === 1 ? 'manual sync' : 'auto-classify'
+    });
+
+    const results = new Map<string, ParsedResume[]>();
+    const batchSize = 3;
+    const delayBetweenBatches = 1000;
+    
+    // Initialize results map for each requirement
+    requirements.forEach(req => {
+      results.set(req.id, []);
+      console.log(`Initialized results for requirement: ${req.name} (${req.id})`);
+    });
+    
+    // If it's a single document, process it immediately
+    if (documents.length === 1) {
+      const doc = documents[0];
+      console.log(`Processing single document: ${doc.filename || doc.id}`);
+      
+      for (const requirement of requirements) {
+        try {
+          const result = await this.analyzeDocument({ ...doc, userId }, requirement, token);
+          if (result) {
+            console.log(`Found match for document ${doc.filename || doc.id} with requirement ${requirement.name}`);
+            const currentResults = results.get(requirement.id) || [];
+            results.set(requirement.id, [...currentResults, result]);
+          }
+        } catch (error) {
+          console.error(`Error processing document ${doc.filename || doc.id} for requirement ${requirement.name}:`, error);
+        }
+      }
+    } else {
+      // Process documents in batches
+      for (let i = 0; i < documents.length; i += batchSize) {
+        const batch = documents.slice(i, i + batchSize);
+        console.log(`Processing batch ${Math.floor(i/batchSize) + 1} of ${Math.ceil(documents.length/batchSize)}`);
+        
+        const batchPromises: Promise<void>[] = [];
+
+        for (const doc of batch) {
+          console.log(`Processing document: ${doc.filename || doc.id}`);
+          
+          for (const requirement of requirements) {
+            const promise = async () => {
+              try {
+                const result = await this.analyzeDocument({ ...doc, userId }, requirement, token);
+                if (result) {
+                  console.log(`Found match for document ${doc.filename || doc.id} with requirement ${requirement.name}`);
+                  const currentResults = results.get(requirement.id) || [];
+                  results.set(requirement.id, [...currentResults, result]);
+                }
+              } catch (error) {
+                console.error(`Error processing document ${doc.filename || doc.id} for requirement ${requirement.name}:`, error);
+              }
+            };
+            batchPromises.push(promise());
+          }
+        }
+
+        await Promise.all(batchPromises);
+
+        if (i + batchSize < documents.length) {
+          console.log(`Waiting ${delayBetweenBatches}ms before next batch...`);
+          await new Promise(resolve => setTimeout(resolve, delayBetweenBatches));
+        }
+      }
+    }
+    
+    // Log final results
+    requirements.forEach(req => {
+      const matches = results.get(req.id) || [];
+      console.log(`Final results for ${req.name}: ${matches.length} matches`);
+    });
+    
     return results;
   }
 } 

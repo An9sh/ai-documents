@@ -1,4 +1,4 @@
-import { DocumentMetadata } from "@/lib/types";
+import { DocumentMetadata } from "../app/types/index";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Trash2, CheckCircle2 } from "lucide-react";

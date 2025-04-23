@@ -1,0 +1,3 @@
+ALTER TABLE "classifications" ADD COLUMN "is_matched" boolean NOT NULL;--> statement-breakpoint
+ALTER TABLE "document_matches" ADD COLUMN "requirement_id" varchar(255);--> statement-breakpoint
+ALTER TABLE "document_matches" ADD CONSTRAINT "document_matches_requirement_id_requirements_id_fk" FOREIGN KEY ("requirement_id") REFERENCES "public"."requirements"("id") ON DELETE no action ON UPDATE no action;

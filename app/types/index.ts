@@ -1,12 +1,20 @@
+export type ConfidenceLevel = 'high' | 'medium' | 'low';
+export type ClassificationCategory = string;
+
 export interface DocumentMetadata {
   id: string;
+  pineconeId?: string;
   filename: string;
+  fileKey: string;
   uploadedAt: Date;
+  size: number;
+  mimeType: string;
+  type: string;
   summary: string;
   pageCount: number;
   fileSize: number;
   namespace: string;
-  type: string;
+  sectionCount?: number;
   classificationData?: {
     classifications: Classification[];
   };
@@ -16,30 +24,85 @@ export interface DocumentMetadata {
   experience?: ExperienceRequirement[];
 }
 
-export interface Classification {
-  requirementId: string;
-  score: number;
-  confidence: number;
-  isPrimary: boolean;
-  isSecondary: boolean;
-  details: {
-    certifications: {
-      matched: Certification[];
-      missing: Certification[];
+export interface ClassificationRequirement {
+  id: string;
+  name: string;
+  description: string;
+  color: string;
+  category: ClassificationCategory;
+  requirements: string[];
+  matchThreshold: number;
+}
+
+export interface ClassificationDetails {
+  requirements: {
+    matched: string[];
+    missing: string[];
+  };
+  text?: string;
+  metadata?: {
+    documentId: string;
+    filename: string;
+    lines: {
+      from: number;
+      to: number;
     };
-    licenses: {
-      matched: License[];
-      missing: License[];
-    };
-    education: {
-      matched: EducationRequirement[];
-      missing: EducationRequirement[];
-    };
-    experience: {
-      matched: ExperienceRequirement[];
-      missing: ExperienceRequirement[];
+    userId: string;
+    matchedAt: string;
+    confidence: ConfidenceLevel;
+    matchedRequirements: string[];
+    rawMatchReason: string;
+    threshold: number;
+    isMatched: boolean;
+    documentInfo: {
+      type: string;
+      size: number;
+      sectionCount?: number;
     };
   };
+  scores?: {
+    vector: number;
+    ai: number;
+    final: number;
+  };
+}
+
+export interface Classification {
+  documentName: string | undefined;
+  updatedAt: string | number | Date;
+  matchDetails: any;
+  id: string;
+  documentId: string;
+  requirementId: string;
+  score: number;
+  confidence: ConfidenceLevel;
+  isPrimary: boolean;
+  isSecondary: boolean;
+  isMatched: boolean;
+  details: ClassificationDetails;
+}
+
+export interface ClassificationData {
+  classifications: Classification[];
+}
+
+export interface DocumentMatch {
+  id: string;
+  documentId: string;
+  requirementId: string;
+  filename: string;
+  documentName?: string;
+  type: string;
+  size: number;
+  matchPercentage: number;
+  matchedRequirements: string[];
+  rawMatchReason: string;
+  isMatched: boolean;
+}
+
+export interface RequirementData {
+  classifications: Classification[];
+  matches: DocumentMatch[];
 }
 
 export interface Certification {
