@@ -41,9 +41,13 @@ async function verifyDocumentIndexing(documentId: string, userId: string, token:
   let retries = 0;
   const retryDelay = 2000; // 2 seconds
 
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || process.env.VERCEL_URL 
+    ? `https://${process.env.VERCEL_URL}` 
+    : 'http://localhost:3000';
+
   while (retries < maxRetries) {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/question`, {
+      const response = await fetch(`${apiUrl}/api/question`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
