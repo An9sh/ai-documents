@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { verifyFirebaseToken } from '../../lib/firebase-admin';
-import { createClassification, getUserClassifications, getMatchedDocumentsForDashboard } from '../../lib/db/classifications';
-import { Classification } from '../../types';
+import { createClassification, getMatchedDocumentsForDashboard } from '../../lib/db/classifications';
 
 export async function GET(request: Request) {
   try {
@@ -75,14 +74,12 @@ export async function POST(request: Request) {
     }
 
     const token = authHeader.split('Bearer ')[1];
-    let userId: string;
     
     try {
       const decodedToken = await verifyFirebaseToken(token);
       if (!decodedToken?.uid) {
         return NextResponse.json({ error: "Invalid token" }, { status: 401 });
       }
-      userId = decodedToken.uid;
     } catch (error) {
       console.error('Token verification error:', error);
       return NextResponse.json({ error: "Invalid token" }, { status: 401 });

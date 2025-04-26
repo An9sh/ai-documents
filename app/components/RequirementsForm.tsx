@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { FilteringRequirements, Category } from '../types/filtering';
 import { TrashIcon } from '@heroicons/react/24/outline';
-import { Certification, EducationRequirement, License } from '../types';
 
 interface RequirementsFormProps {
   requirement?: FilteringRequirements;
@@ -13,7 +12,7 @@ interface RequirementsFormProps {
 export default function RequirementsForm({ requirement, onSave, onCancel, categories }: RequirementsFormProps) {
   const [name, setName] = useState(requirement?.name || '');
   const [description, setDescription] = useState(requirement?.description || '');
-  const [color, setColor] = useState(requirement?.color || '#3B82F6');
+  // const [color, setColor] = useState(requirement?.color || '#3B82F6');
   const [category, setCategory] = useState(requirement?.category || categories[0]?.id || 'normal');
   const [requirements, setRequirements] = useState<string[]>(requirement?.requirements || []);
 

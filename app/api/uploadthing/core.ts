@@ -4,7 +4,7 @@ const f = createUploadthing();
 
 export const ourFileRouter = {
     pdfUploader: f({ pdf: { maxFileSize: "16MB" } })
-    .middleware(async ({ req }) => {
+    .middleware(async ({ }) => {
       // This code runs on your server before upload
       // You can put any auth logic here
       return { userId: "userId" };

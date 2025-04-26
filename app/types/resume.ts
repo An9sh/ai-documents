@@ -1,4 +1,4 @@
-import { getCategories, Category } from './filtering';
+import { Category } from './filtering';
 
 // export interface Certification {
 //   id: string;

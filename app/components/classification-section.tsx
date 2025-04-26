@@ -65,17 +65,11 @@ const RequirementsList = ({ requirements }: { requirements: string[] }) => {
 export function ClassificationSection({
   requirements,
   classifications,
-  onCreateRequirement,
   onSyncClassification,
   onUpdateRequirement,
   setGroupedResumes
 }: ClassificationSectionProps) {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  // const [newRequirementName, setNewRequirementName] = useState('');
-  // const [newRequirementDescription, setNewRequirementDescription] = useState('');
-  // const [newRequirementThreshold, setNewRequirementThreshold] = useState(70);
-  // const [newRequirementRequirements, setNewRequirementRequirements] = useState<string[]>([]);
-  // const [newRequirementInput, setNewRequirementInput] = useState('');
   const [loading, setLoading] = useState<Map<string, boolean>>(new Map());
   const [showNoMatchAlert, setShowNoMatchAlert] = useState(false);
   const [currentRequirement, setCurrentRequirement] = useState('');
@@ -144,7 +138,8 @@ export function ClassificationSection({
             try {
               const details = JSON.parse(doc.details);
               return details.metadata?.isMatched === true;
-            } catch (e) {
+            } catch (error) {
+              console.error('Error parsing details:', error);
               return false;
             }
           })
@@ -261,7 +256,7 @@ export function ClassificationSection({
         }
       }
 
-      setOpenDropdownId(null);
+    setOpenDropdownId(null);
     } catch (error) {
       console.error('Error updating requirement category:', error);
       setShowCategoryError(true);
@@ -300,22 +295,22 @@ export function ClassificationSection({
         </div>
       ) : (
         <>
-          {showNoMatchAlert && (
-            <div className="fixed top-4 right-4 bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-lg shadow-lg z-50">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                  </svg>
-                </div>
-                <div className="ml-3">
-                  <p className="text-sm">
-                    No matches found for requirement: {currentRequirement}
-                  </p>
-                </div>
-              </div>
+      {showNoMatchAlert && (
+        <div className="fixed top-4 right-4 bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-lg shadow-lg z-50">
+          <div className="flex items-center">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
             </div>
-          )}
+            <div className="ml-3">
+              <p className="text-sm">
+                No matches found for requirement: {currentRequirement}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
           {showSyncResults && syncResults && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -389,54 +384,54 @@ export function ClassificationSection({
             </div>
           )}
 
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {requirements.map((requirement) => {
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {requirements.map((requirement) => {
               const requirementClassifications = groupedClassifications.get(requirement.id) || [];
-              
-              return (
-                <Disclosure as="div" key={requirement.id} defaultOpen={true} className="bg-white shadow rounded-lg overflow-hidden">
-                  {({ open }: { open: boolean }) => (
-                    <div>
-                      <div className="w-full px-4 py-3 flex items-center justify-between" 
-                        style={{ backgroundColor: requirement.color ? `${requirement.color}20` : '#f3f4f6' }}>
-                        <div className="flex items-center flex-grow">
-                          <div className="w-2 h-8 mr-3 rounded-full" style={{ backgroundColor: requirement.color || '#6b7280' }}></div>
-                          <span>{requirement.name}</span>
-                          <span className="ml-2 inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-800">
+          
+          return (
+            <Disclosure as="div" key={requirement.id} defaultOpen={true} className="bg-white shadow rounded-lg overflow-hidden">
+              {({ open }: { open: boolean }) => (
+                <div>
+                  <div className="w-full px-4 py-3 flex items-center justify-between" 
+                    style={{ backgroundColor: requirement.color ? `${requirement.color}20` : '#f3f4f6' }}>
+                    <div className="flex items-center flex-grow">
+                      <div className="w-2 h-8 mr-3 rounded-full" style={{ backgroundColor: requirement.color || '#6b7280' }}></div>
+                      <span>{requirement.name}</span>
+                      <span className="ml-2 inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-800">
                             {requirementClassifications.length}
-                          </span>
-                        </div>
-                        <div className="flex items-center space-x-2 ml-4">
-                          <div className="relative">
-                            <button
-                              type="button"
-                              onClick={() => setOpenDropdownId(openDropdownId === requirement.id ? null : requirement.id)}
-                              className="inline-flex items-center gap-x-1.5 rounded-md bg-white px-2 py-1 text-sm font-medium text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-2 ml-4">
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() => setOpenDropdownId(openDropdownId === requirement.id ? null : requirement.id)}
+                          className="inline-flex items-center gap-x-1.5 rounded-md bg-white px-2 py-1 text-sm font-medium text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
                               disabled={isCategoryLoading.get(requirement.id)}
-                            >
+                        >
                               {isCategoryLoading.get(requirement.id) ? (
                                 <Loader2 className="h-4 w-4 animate-spin" />
                               ) : (
-                                <ChevronDownIcon className="-mr-0.5 h-4 w-4 text-gray-400" aria-hidden="true" />
+                          <ChevronDownIcon className="-mr-0.5 h-4 w-4 text-gray-400" aria-hidden="true" />
                               )}
-                            </button>
+                        </button>
 
-                            {openDropdownId === requirement.id && (
-                              <div className="absolute right-0 z-10 mt-2 w-56 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
-                                <div className="py-1">
-                                  {customCategories.map((category) => (
-                                    <button
-                                      key={`dropdown-${requirement.id}-category-${category.id}`}
-                                      onClick={() => {
-                                        handleCategoryChange(requirement, category.id);
-                                        setActiveCategory(category.id);
-                                        setOpenDropdownId(null);
-                                      }}
-                                      className={`block w-full px-4 py-2 text-left text-sm ${
-                                        requirement.category === category.id
-                                          ? 'bg-indigo-50 text-indigo-600'
-                                          : 'text-gray-700 hover:bg-gray-100'
-                                      }`}
+                        {openDropdownId === requirement.id && (
+                          <div className="absolute right-0 z-10 mt-2 w-56 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
+                            <div className="py-1">
+                              {customCategories.map((category) => (
+                                <button
+                                  key={`dropdown-${requirement.id}-category-${category.id}`}
+                                  onClick={() => {
+                                    handleCategoryChange(requirement, category.id);
+                                    setActiveCategory(category.id);
+                                    setOpenDropdownId(null);
+                                  }}
+                                  className={`block w-full px-4 py-2 text-left text-sm ${
+                                    requirement.category === category.id
+                                      ? 'bg-indigo-50 text-indigo-600'
+                                      : 'text-gray-700 hover:bg-gray-100'
+                                  }`}
                                       disabled={isCategoryLoading.get(requirement.id)}
                                     >
                                       {isCategoryLoading.get(requirement.id) && requirement.category === category.id ? (
@@ -447,64 +442,64 @@ export function ClassificationSection({
                                       ) : (
                                         category.name
                                       )}
-                                    </button>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
+                                </button>
+                              ))}
+                            </div>
                           </div>
-                          <button
-                            onClick={() => handleSyncClick(requirement)}
-                            disabled={loading.get(requirement.id)}
-                            className="inline-flex items-center rounded-md bg-white px-2.5 py-1.5 text-sm font-medium text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 disabled:opacity-50"
-                          >
-                            {loading.get(requirement.id) ? (
-                              <Loader2 className="h-4 w-4 animate-spin mr-1" />
-                            ) : (
-                              <svg className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                              </svg>
-                            )}
-                            Sync
-                          </button>
-                          <Disclosure.Button className="p-1">
-                            {open ? (
-                              <ChevronDownIcon className="h-5 w-5 text-gray-500" />
-                            ) : (
-                              <ChevronRightIcon className="h-5 w-5 text-gray-500" />
-                            )}
-                          </Disclosure.Button>
-                        </div>
-                      </div>
-                      
-                      <Disclosure.Panel className="px-4 py-3 bg-gray-50">
-                        {requirement.description && (
-                          <p className="text-xs text-gray-500 mb-3">{requirement.description}</p>
                         )}
-                        
-                        <div className="space-y-4">
-                          <Disclosure>
-                            {({ open }: { open: boolean }) => (
-                              <div>
-                                <Disclosure.Button className="flex w-full justify-between rounded-lg bg-white px-3 py-2 text-left text-xs font-medium text-gray-900 shadow-sm">
-                                  <span>Requirements</span>
-                                  {open ? (
-                                    <ChevronDownIcon className="h-4 w-4 text-gray-500" />
-                                  ) : (
-                                    <ChevronRightIcon className="h-4 w-4 text-gray-500" />
-                                  )}
-                                </Disclosure.Button>
-                                <Disclosure.Panel className="px-3 pt-3 pb-2 text-xs text-gray-500">
-                                  <RequirementsList requirements={requirement.requirements} />
-                                </Disclosure.Panel>
-                              </div>
-                            )}
-                          </Disclosure>
+                      </div>
+                      <button
+                        onClick={() => handleSyncClick(requirement)}
+                        disabled={loading.get(requirement.id)}
+                        className="inline-flex items-center rounded-md bg-white px-2.5 py-1.5 text-sm font-medium text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 disabled:opacity-50"
+                      >
+                        {loading.get(requirement.id) ? (
+                          <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                        ) : (
+                          <svg className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                          </svg>
+                        )}
+                        Sync
+                      </button>
+                      <Disclosure.Button className="p-1">
+                        {open ? (
+                          <ChevronDownIcon className="h-5 w-5 text-gray-500" />
+                        ) : (
+                          <ChevronRightIcon className="h-5 w-5 text-gray-500" />
+                        )}
+                      </Disclosure.Button>
+                    </div>
+                  </div>
+                  
+                  <Disclosure.Panel className="px-4 py-3 bg-gray-50">
+                    {requirement.description && (
+                      <p className="text-xs text-gray-500 mb-3">{requirement.description}</p>
+                    )}
+                    
+                    <div className="space-y-4">
+                      <Disclosure>
+                        {({ open }: { open: boolean }) => (
+                          <div>
+                            <Disclosure.Button className="flex w-full justify-between rounded-lg bg-white px-3 py-2 text-left text-xs font-medium text-gray-900 shadow-sm">
+                              <span>Requirements</span>
+                              {open ? (
+                                <ChevronDownIcon className="h-4 w-4 text-gray-500" />
+                              ) : (
+                                <ChevronRightIcon className="h-4 w-4 text-gray-500" />
+                              )}
+                            </Disclosure.Button>
+                            <Disclosure.Panel className="px-3 pt-3 pb-2 text-xs text-gray-500">
+                              <RequirementsList requirements={requirement.requirements} />
+                            </Disclosure.Panel>
+                          </div>
+                        )}
+                      </Disclosure>
 
-                          <div className="mt-4">
-                            <h3 className="text-sm font-medium text-gray-900 mb-2">Matched Documents</h3>
+                      <div className="mt-4">
+                        <h3 className="text-sm font-medium text-gray-900 mb-2">Matched Documents</h3>
                             {requirementClassifications.length > 0 ? (
-                              <div className="space-y-2">
+                          <div className="space-y-2">
                                 {requirementClassifications.map((classification) => {
                                   const details = classification.details;
                                   const scores = details.scores || { vector: 0, ai: 0, final: 0 };
@@ -524,13 +519,13 @@ export function ClassificationSection({
                                   
                                   return (
                                     <div key={classification.id} className="bg-white shadow rounded-lg p-4 mb-2 h-auto">
-                                      <div className="flex items-center justify-between">
+                                <div className="flex items-center justify-between">
                                         <div className="flex items-center space-x-2 flex-1 min-w-0">
                                           <DocumentTextIcon className="h-5 w-5 flex-shrink-0 text-gray-400" />
                                           <span className="font-medium text-gray-900 truncate" title={classification.documentName}>
                                             {classification.documentName || 'Unknown Document'}
                                           </span>
-                                        </div>
+                                  </div>
                                         <div className="flex items-center space-x-2 flex-shrink-0">
                                           {classification.isPrimary ? (
                                             <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
@@ -549,9 +544,9 @@ export function ClassificationSection({
                                             classification.score >= 75 ? 'text-green-600' : 'text-gray-600'
                                           }`}>
                                             {classification.score}%
-                                          </span>
-                                        </div>
-                                      </div>
+                                    </span>
+                                  </div>
+                                </div>
 
                                       <Disclosure>
                                         {({ open }) => (
@@ -594,8 +589,8 @@ export function ClassificationSection({
                                                 <div className="flex justify-between text-xs text-gray-500 border-t pt-2 mt-2">
                                                   <span>Type: {metadata.documentInfo?.type || 'Unknown'}</span>
                                                   <span>Size: {((metadata.documentInfo?.size || 0) / 1024).toFixed(1)} KB</span>
-                                                </div>
-                                              </div>
+                                  </div>
+                                </div>
                                             </Disclosure.Panel>
                                           </div>
                                         )}
@@ -607,17 +602,17 @@ export function ClassificationSection({
                             ) : (
                               <p className="text-sm text-gray-500">No documents matched this requirement.</p>
                             )}
-                          </div>
-                        </div>
-                      </Disclosure.Panel>
+                      </div>
                     </div>
-                  )}
-                </Disclosure>
-              );
-            })}
-          </div>
+                  </Disclosure.Panel>
+                </div>
+              )}
+            </Disclosure>
+          );
+        })}
+      </div>
         </>
       )}
     </div>
   );
-}
+} 

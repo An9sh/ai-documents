@@ -1,10 +1,8 @@
 import { db } from '../db';
 import { documents, users, classifications, requirements } from '../../../db/schema';
-import { eq, and, isNull, notExists } from 'drizzle-orm';
+import { eq, and, notExists } from 'drizzle-orm';
 import { DocumentMetadata } from '../../types';
 import { v4 as uuidv4 } from 'uuid';
-import { createDocument as createDbDocument } from './documents';
-import { useAuth } from '../../contexts/auth-context';
 
 export async function createDocument(document: Omit<DocumentMetadata, 'id'> & { pineconeId: string }, userId: string): Promise<DocumentMetadata> {
   try {

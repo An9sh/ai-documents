@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { Pinecone } from "@pinecone-database/pinecone";
-import { embedder } from "../embeddings/route";
+import { embedder } from "../../lib/embedder";
 import { ChatOpenAI } from "@langchain/openai";
 
 const pinecone = new Pinecone();
@@ -231,6 +231,7 @@ export async function POST(request: Request) {
               };
             }
           } catch (error) {
+            console.error("Error parsing AI response:", error);
             aiResponse = {
               score: 0,
               match: false,

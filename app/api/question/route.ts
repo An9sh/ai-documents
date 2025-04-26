@@ -1,7 +1,6 @@
 import { ChatOpenAI } from "@langchain/openai";
 import { NextResponse } from "next/server";
-import { getPineconeClient } from "../../../lib/pinecone-client";
-import { embedder } from "../embeddings/route";
+import { embedder } from "../../lib/embedder";
 import { Pinecone } from "@pinecone-database/pinecone";
 
 const pinecone = new Pinecone();
@@ -123,9 +122,9 @@ export async function POST(req: Request) {
         
       });
 
-      const isStructuredResponse = question.includes("Return a JSON response") || 
-      question.includes("JSON response with") ||
-      question.includes("matches") && question.includes("score");
+      // const isStructuredResponse = question.includes("Return a JSON response") || 
+      // question.includes("JSON response with") ||
+      // question.includes("matches") && question.includes("score");
 
     // let systemPrompt = `You are a helpful AI assistant. Use the following context to answer the question. If the context doesn't contain relevant information, say so. For each piece of information you use, mention which document it came from. Context: ${context}`;
 

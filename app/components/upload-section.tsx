@@ -5,7 +5,6 @@ import { useDropzone } from 'react-dropzone';
 import { DocumentMetadata } from '../types';
 import { CloudArrowUpIcon, CheckCircleIcon, XCircleIcon, ChevronDownIcon } from '@heroicons/react/24/outline';
 import { Dialog } from '@headlessui/react';
-import { uploadDocument } from '../lib/db/documents';
 import { useAuth } from '../contexts/auth-context';
 import { UploadProgress } from './upload-progress';
 import { v4 as uuidv4 } from 'uuid';

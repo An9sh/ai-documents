@@ -1,29 +1,3 @@
-// export interface Certification {
-//   id: string;
-//   name: string;
-//   isRequired: boolean;
-// }
-
-import { ReactNode } from "react";
-
-// export interface License {
-//   id: string;
-//   name: string;
-//   isRequired: boolean;
-// }
-
-// export interface EducationRequirement {
-//   degree: string;
-//   field: string;
-//   required: boolean;
-// }
-
-// export interface ExperienceRequirement {
-//   skill: string;
-//   yearsRequired: number;
-//   required: boolean;
-// }
-
 export interface Category {
   id: string;
   userId?: string;

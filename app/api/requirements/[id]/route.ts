@@ -1,4 +1,4 @@
-import { NextResponse, NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { verifyFirebaseToken } from '../../../lib/firebase-admin';
 import { updateRequirement } from '../../../lib/db/requirements';
 import { db } from '../../../lib/db';
@@ -6,9 +6,9 @@ import { requirements } from '../../../../db/schema';
 import { eq } from 'drizzle-orm';
 
 export async function PUT(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+): Promise<NextResponse> {
   try {
     const authHeader = request.headers.get('Authorization');
     if (!authHeader?.startsWith('Bearer ')) {
@@ -41,9 +41,10 @@ export async function PUT(
   }
 }
 
+
 export async function PATCH(
-  request: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Verify authentication

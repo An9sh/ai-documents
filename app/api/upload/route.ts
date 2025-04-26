@@ -1,24 +1,19 @@
 import { NextResponse } from "next/server";
-import { Pinecone } from "@pinecone-database/pinecone";
-import { Document } from "@langchain/core/documents";
 import { OpenAIEmbeddings } from "@langchain/openai";
 import { PineconeStore } from "@langchain/pinecone";
 import { RecursiveCharacterTextSplitter } from "langchain/text_splitter";
-import { PDFLoader } from "@langchain/community/document_loaders/fs/pdf";
 import { v4 as uuidv4 } from 'uuid';
 import { verifyFirebaseToken } from '../../lib/firebase-admin';
 import { createDocument } from '../../lib/db/documents';
 import { ensureUserExists } from '../../lib/db/users';
-import { getRequirements } from "app/lib/db/requirements";
+import { getRequirements } from "../../../app/lib/db/requirements";
 import { RequirementsClassifier } from "../requirements/route";
 import { createDocumentMatch, prepareDocumentMatch } from "../../lib/db/requirement-matches";
 import { createClassification } from "../../lib/db/classifications";
 import { Classification } from '../../types';
-import { sendProgressUpdate } from './progress/route';
-import { chunkedUpsert } from "../../utils/chunkedUpsert";
-import { embedder } from "../embeddings/route";
+import { sendProgressUpdate } from '../../lib/upload-progress';
 import pdfParse from 'pdf-parse-fork';
-import { getPineconeClient } from "lib/pinecone-client";
+import { getPineconeClient } from "../../../lib/pinecone-client";
 
 // const pinecone = new Pinecone();
 // const indexName = process.env.PINECONE_INDEX_NAME!;

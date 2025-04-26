@@ -1,11 +1,4 @@
 import { NextResponse } from "next/server";
-
-interface ProgressData {
-  status: 'uploading' | 'processing' | 'completed' | 'error';
-  message: string;
-  progress: number;
-}
-
 declare global {
   var uploadProgressControllers: {
     [key: string]: ReadableStreamDefaultController;
@@ -20,7 +13,6 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Upload ID is required' }, { status: 400 });
   }
 
-  const encoder = new TextEncoder();
   const stream = new ReadableStream({
     start(controller) {
       // Store the controller to send updates later
@@ -42,13 +34,4 @@ export async function GET(request: Request) {
       'Connection': 'keep-alive',
     },
   });
-}
-
-// Helper function to send progress updates
-export function sendProgressUpdate(uploadId: string, data: ProgressData) {
-  const encoder = new TextEncoder();
-  if (global.uploadProgressControllers && global.uploadProgressControllers[uploadId]) {
-    const controller = global.uploadProgressControllers[uploadId];
-    controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
-  }
 } 

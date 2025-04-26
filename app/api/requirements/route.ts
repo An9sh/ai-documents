@@ -11,14 +11,6 @@ interface Match {
   };
 }
 
-interface DocumentInfo {
-  matches: Match[];
-  aiResponse?: {
-    match: boolean;
-    reason: string;
-  };
-}
-
 export class RequirementsClassifier {
 
 

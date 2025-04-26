@@ -1,8 +1,5 @@
 import { cert, getApps, initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
-import { eq } from "drizzle-orm";
-import { users } from "../../db/schema";
-import { db } from './db';
 
 if (!getApps().length) {
   initializeApp({

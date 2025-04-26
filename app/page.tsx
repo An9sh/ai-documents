@@ -2,11 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { DocumentMetadata } from "../app/types";
-import { ThemeToggle } from "../components/theme-toggle";
 import { ClassificationRequirement, ParsedResume } from './types/resume';
-// import { UploadSection } from './components/upload-section';
-import { ClassificationSection } from './components/classification-section';
-import { MatchAPI } from './api/match';
 import { useRouter } from 'next/navigation';
 import { signIn, signInWithGoogle } from '../lib/firebase';
 import { ensureUserExists } from '../app/lib/db/users';
@@ -17,10 +13,8 @@ const REQUIREMENTS_STORAGE_KEY = 'resume-filtering-requirements';
 export default function Home() {
   const router = useRouter();
   const [documents, setDocuments] = useState<DocumentMetadata[]>([]);
-  const [selectedDocuments, setSelectedDocuments] = useState<DocumentMetadata[]>([]);
   const [isClient, setIsClient] = useState(false);
   const [requirements, setRequirements] = useState<ClassificationRequirement[]>([]);
-  const [groupedResumes, setGroupedResumes] = useState<Map<string, ParsedResume[]>>(new Map());
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -54,37 +48,6 @@ export default function Home() {
       localStorage.setItem("documents", JSON.stringify(documents));
     }
   }, [documents, isClient]);
-
-  const handleDocumentSelect = (doc: DocumentMetadata) => {
-    setSelectedDocuments(prev => 
-      prev.some(d => d.id === doc.id)
-        ? prev.filter(d => d.id !== doc.id)
-        : [...prev, doc]
-    );
-  };
-
-  const handleUploadComplete = (newDocuments: DocumentMetadata[]) => {
-    setDocuments(prev => [...prev, ...newDocuments]);
-  };
-
-  const handleCreateRequirement = (newRequirement: ClassificationRequirement) => {
-    const updatedRequirements = [...requirements, newRequirement];
-    setRequirements(updatedRequirements);
-    localStorage.setItem(REQUIREMENTS_STORAGE_KEY, JSON.stringify(updatedRequirements));
-  };
-
-  // const handleSyncClassification = async (requirement: ClassificationRequirement) => {
-  //   try {
-  //     const updatedResumes = await MatchAPI.syncClassification(documents, requirement);
-  //     console.log('Updated resumes:', updatedResumes);
-      
-  //     const newGroupedResumes = new Map(groupedResumes);
-  //     newGroupedResumes.set(requirement.id, updatedResumes);
-  //     setGroupedResumes(newGroupedResumes);
-  //   } catch (error) {
-  //     console.error('Error syncing classification:', error);
-  //   }
-  // };
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();

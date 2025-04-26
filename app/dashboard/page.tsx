@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { DocumentMetadata, Classification, ClassificationRequirement, DocumentMatch, RequirementData } from '../types';
+import { DocumentMetadata, Classification, ClassificationRequirement, RequirementData } from '../types';
 import { Category } from '../types/filtering';
 import { useAuth } from '../contexts/auth-context';
 import { getDocuments } from '../lib/db/documents';
@@ -27,11 +27,6 @@ interface MatchDetails {
   };
   confidence: "high" | "medium" | "low";
   reason: string;
-}
-
-interface DocumentInfo {
-  matchDetails: MatchDetails;
-  relevantDocuments: RelevantDocument[];
 }
 
 interface SyncResponse {

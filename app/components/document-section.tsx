@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { DocumentMetadata } from '../types';
 import { TrashIcon } from '@heroicons/react/24/outline';
-import { deleteDocument, getDocuments } from '../lib/db/documents';
+import { deleteDocument } from '../lib/db/documents';
 import { useAuth } from '../contexts/auth-context';
 
 interface DocumentSectionProps {

@@ -1,19 +1,17 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { DocumentMetadata } from '../types'
 import { Category, FilteringRequirements } from '../types/filtering'
-import { v4 as uuidv4 } from 'uuid'
 import { PlusIcon, TrashIcon, PencilIcon } from '@heroicons/react/24/outline'
-import { CheckCircleIcon, ExclamationCircleIcon } from '@heroicons/react/24/outline'
 import RequirementsForm from '../components/RequirementsForm'
 import CategoryForm from '../components/category-form'
 import { useAuth } from '../contexts/auth-context'
 import { getRequirements, createRequirement, updateRequirement, deleteRequirement } from '../lib/db/requirements'
 import { getCategories, createCategory, updateCategory, deleteCategory } from '../lib/db/categories'
 
-export default function SettingsPage() {
+function SettingsContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const editId = searchParams.get('edit')
@@ -26,8 +24,6 @@ export default function SettingsPage() {
   const [requirements, setRequirements] = useState<FilteringRequirements[]>([])
   const [isEditing, setIsEditing] = useState(false)
   const [currentRequirement, setCurrentRequirement] = useState<FilteringRequirements | undefined>(undefined)
-  const [selectedRequirement, setSelectedRequirement] = useState<FilteringRequirements | null>(null)
-  const [messages, setMessages] = useState<{ role: 'user' | 'assistant', content: string }[]>([])
   const [documents, setDocuments] = useState<DocumentMetadata[]>([])
 
   // Load saved requirements and categories from database
@@ -283,7 +279,7 @@ export default function SettingsPage() {
                           <PencilIcon className="h-5 w-5" />
                         </button>
                         <button
-                          onClick={(e) => handleDeleteCategory(category.id)}
+                          onClick={() => handleDeleteCategory(category.id)}
                           className="text-red-600 hover:text-red-900"
                         >
                           <TrashIcon className="h-5 w-5" />
@@ -439,4 +435,12 @@ export default function SettingsPage() {
       )}
     </div>
   );
+}
+
+export default function SettingsPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <SettingsContent />
+    </Suspense>
+  )
 } 
