@@ -29,5 +29,5 @@ import * as schema from "../../db/schema";
 
 config({ path: ".env" });
 
-const sql = neon("postgresql://neondb_owner:npg_3EGUoODJZxq7@ep-old-wildflower-a5al5x64-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require");
+const sql = neon(process.env.DATABASE_URL!);
 export const db = drizzle(sql, { schema });
