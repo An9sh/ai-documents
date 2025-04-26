@@ -214,6 +214,40 @@ export async function POST(request: Request) {
       progress: 60
     });
 
+    // Return response immediately after document is stored
+    const response = NextResponse.json({ 
+      success: true,
+      document: dbDocument,
+      message: 'Document uploaded and stored successfully. Classification will continue in the background.',
+      uploadId
+    });
+
+    // Trigger background classification process
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || process.env.VERCEL_URL 
+      ? `https://${process.env.VERCEL_URL}` 
+      : 'http://localhost:3000';
+
+    fetch(`${apiUrl}/api/classify`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        documentId: dbDocument.id,
+        userId,
+        token,
+        uploadId
+      })
+    }).catch(error => {
+      console.error('Failed to trigger background classification:', error);
+    });
+
+    return response;
+
+    // The rest of the classification process will be handled by a background job
+    // This code is kept for reference but won't be executed in the main request
+    /*
     const allRequirements = await getRequirements(userId);
     const classifications: Classification[] = [];
 
@@ -230,7 +264,6 @@ export async function POST(request: Request) {
       const documentInfo = await RequirementsClassifier.fetchDocumentInformation(
         question,
         [documentId],
-        // sections.map(s => s.sectionId), // Pass all section IDs
         token,
         userId,
         req.id
@@ -276,7 +309,6 @@ export async function POST(request: Request) {
               documentInfo: {
                 type: 'document',
                 size: file.size,
-                // sectionCount: sections.length
               }
             },
             scores: {
@@ -347,6 +379,7 @@ export async function POST(request: Request) {
       message: `Document processed successfully. Matched with ${classifications.filter(c => c.isPrimary).length} out of ${allRequirements.length} requirements.`,
       uploadId
     });
+    */
   } catch (error) {
     sendProgressUpdate(uploadId, { 
       status: 'error',
