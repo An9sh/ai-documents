@@ -10,7 +10,6 @@ if (!getApps().length) {
     })
   });
 }
-
 export async function verifyFirebaseToken(token: string) {
   try {
     const auth = getAuth();
