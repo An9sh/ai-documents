@@ -40,7 +40,11 @@ export async function POST(request: Request) {
     const question = RequirementsClassifier.buildQuestionForRequirement(requirement);
 
     // Call the search API with the question and requirement
-    const searchResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/search`, {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || process.env.VERCEL_URL 
+      ? `https://${process.env.VERCEL_URL}` 
+      : 'http://localhost:3000';
+
+    const searchResponse = await fetch(`${apiUrl}/api/search`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

@@ -26,7 +26,11 @@ export class RequirementsClassifier {
 
 static async fetchDocumentInformation(question: string, documentIds: string[], token: string, userId: string, requirementId: string) {
   try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/question`, {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || process.env.VERCEL_URL 
+      ? `https://${process.env.VERCEL_URL}` 
+      : 'http://localhost:3000';
+
+    const response = await fetch(`${apiUrl}/api/question`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
