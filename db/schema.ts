@@ -1,4 +1,3 @@
-import { AnyPgColumn } from "drizzle-orm/pg-core";
 import { pgTable as table } from "drizzle-orm/pg-core";
 import * as t from "drizzle-orm/pg-core";
 
@@ -113,5 +112,21 @@ export const documentMatches = table(
   (table) => [
     t.index("document_matches_document_id_idx").on(table.documentId),
     t.index("document_matches_classification_id_idx").on(table.classificationId)
+  ]
+);
+
+export const progress = table(
+  "progress",
+  {
+    id: t.varchar("id", { length: 255 }).primaryKey(),
+    userId: t.varchar("user_id", { length: 255 }).notNull(),
+    status: t.varchar("status", { enum: ['uploading', 'processing', 'completed', 'error'] }).notNull(),
+    message: t.varchar("message", { length: 255 }).notNull(),
+    progress: t.integer("progress").notNull(),
+    createdAt: t.timestamp("created_at").defaultNow().notNull(),
+    updatedAt: t.timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    t.index("progress_user_id_idx").on(table.userId)
   ]
 ); 

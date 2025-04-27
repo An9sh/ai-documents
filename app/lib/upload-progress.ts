@@ -1,13 +1,13 @@
-interface ProgressData {
+import { updateProgress } from './db/progress';
+
+export async function sendProgressUpdate(uploadId: string, data: {
   status: 'uploading' | 'processing' | 'completed' | 'error';
   message: string;
   progress: number;
-}
-
-export function sendProgressUpdate(uploadId: string, data: ProgressData) {
-  const encoder = new TextEncoder();
-  if (global.uploadProgressControllers && global.uploadProgressControllers[uploadId]) {
-    const controller = global.uploadProgressControllers[uploadId];
-    controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+}) {
+  try {
+    await updateProgress(uploadId, data);
+  } catch (error) {
+    console.error('Error updating progress:', error);
   }
 } 

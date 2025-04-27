@@ -18,8 +18,7 @@ export async function createCategory(userId: string, category: Omit<Category, 'u
     const [newCategory] = await db.insert(categories)
       .values({
         ...category,
-        userId,
-        createdAt: new Date()
+        userId
       })
       .returning();
 

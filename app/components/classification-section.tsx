@@ -575,7 +575,7 @@ export function ClassificationSection({
                                                   <p className="mt-1 text-gray-500">{metadata.rawMatchReason}</p>
                                                 </div>
 
-                                                {metadata.matchedRequirements && metadata.matchedRequirements.length > 0 && (
+                                                {/* {metadata.matchedRequirements && metadata.matchedRequirements.length > 0 && (
                                                   <div>
                                                     <span className="font-medium">Matched Requirements:</span>
                                                     <ul className="mt-1 list-disc list-inside">
@@ -584,7 +584,7 @@ export function ClassificationSection({
                                                       ))}
                                                     </ul>
                                                   </div>
-                                                )}
+                                                )} */}
 
                                                 <div className="flex justify-between text-xs text-gray-500 border-t pt-2 mt-2">
                                                   <span>Type: {metadata.documentInfo?.type || 'Unknown'}</span>

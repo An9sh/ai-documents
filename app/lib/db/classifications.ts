@@ -46,15 +46,17 @@ export async function createClassification(classification: Omit<Classification, 
   const [newClassification] = await db.insert(classifications)
     .values({
       id: uuidv4(),
-      documentId: classification.documentId,
-      requirementId: classification.requirementId,
+      document_id: classification.documentId,
+      requirement_id: classification.requirementId,
       score: classification.score,
-      isMatched: classification.isMatched,
+      is_matched: classification.isMatched ?? false,
       confidence: getConfidenceScore(classification.confidence),
-      isPrimary: classification.isPrimary,
-      isSecondary: classification.isSecondary,
-      details: classification.details
-    })
+      is_primary: classification.isPrimary ?? false,
+      is_secondary: classification.isSecondary ?? false,
+      details: classification.details ?? {},
+      created_at: new Date(),
+      updated_at: new Date()
+    } as typeof classifications.$inferInsert)
     .returning();
 
   return {
@@ -71,11 +73,12 @@ export async function updateClassification(classificationId: string, classificat
     .set({
       score: classification.score,
       confidence: classification.confidence ? getConfidenceScore(classification.confidence) : undefined,
-      isPrimary: classification.isPrimary,
-      isSecondary: classification.isSecondary,
-      isMatched: classification.isMatched,
-      details: classification.details
-    })
+      is_primary: classification.isPrimary ?? false,
+      is_secondary: classification.isSecondary ?? false,
+      is_matched: classification.isMatched ?? false,
+      details: classification.details ?? {},
+      updated_at: new Date()
+    } as Partial<typeof classifications.$inferInsert>)
     .where(eq(classifications.id, classificationId))
     .returning();
 

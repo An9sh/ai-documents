@@ -14,18 +14,7 @@ import { Classification } from '../../types';
 import { sendProgressUpdate } from '../../lib/upload-progress';
 import pdfParse from 'pdf-parse-fork';
 import { getPineconeClient } from "../../../lib/pinecone-client";
-
-// const pinecone = new Pinecone();
-// const indexName = process.env.PINECONE_INDEX_NAME!;
-
-// Initialize OpenAI embeddings with specific configuration
-// const embeddings = new OpenAIEmbeddings({
-//   modelName: 'text-embedding-ada-002',
-//   openAIApiKey: process.env.OPENAI_API_KEY,
-//   maxConcurrency: 5,
-//   batchSize: 1,
-//   timeout: 60000, // 60 seconds timeout
-// });
+import { createProgress } from '../../lib/db/progress';
 
 async function extractTextFromPDF(buffer: Buffer): Promise<string> {
   try {
@@ -41,9 +30,9 @@ async function verifyDocumentIndexing(documentId: string, userId: string, token:
   let retries = 0;
   const retryDelay = 2000; // 2 seconds
 
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || process.env.VERCEL_URL 
-    ? `https://${process.env.VERCEL_URL}` 
-    : 'http://localhost:3000';
+  const apiUrl = process.env.VERCEL_URL 
+    ? `https://${process.env.VERCEL_URL}`
+    : process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
   while (retries < maxRetries) {
     try {
@@ -75,7 +64,6 @@ async function verifyDocumentIndexing(documentId: string, userId: string, token:
       }
     }
   }
-
   return false;
 }
 
@@ -84,13 +72,6 @@ export async function POST(request: Request) {
   const uploadId = request.headers.get('X-Upload-Id') || uuidv4();
   
   try {
-    // Send initial progress update
-    sendProgressUpdate(uploadId, { 
-      status: 'uploading',
-      message: 'Starting document upload...',
-      progress: 0
-    });
-
     const formData = await request.formData();
     const file = formData.get("file") as unknown as { 
       name: string;
@@ -113,6 +94,16 @@ export async function POST(request: Request) {
 
     const userId = decodedToken.uid;
     await ensureUserExists(userId, decodedToken.email || '', decodedToken.name || '');
+
+    // Create initial progress record
+    await createProgress(uploadId, userId);
+
+    // Send initial progress update
+    await sendProgressUpdate(uploadId, { 
+      status: 'uploading',
+      message: 'Starting document upload...',
+      progress: 0
+    });
 
     if (!file) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
@@ -214,40 +205,6 @@ export async function POST(request: Request) {
       progress: 60
     });
 
-    // Return response immediately after document is stored
-    const response = NextResponse.json({ 
-      success: true,
-      document: dbDocument,
-      message: 'Document uploaded and stored successfully. Classification will continue in the background.',
-      uploadId
-    });
-
-    // Trigger background classification process
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || process.env.VERCEL_URL 
-      ? `https://${process.env.VERCEL_URL}` 
-      : 'http://localhost:3000';
-
-    fetch(`${apiUrl}/api/classify`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify({
-        documentId: dbDocument.id,
-        userId,
-        token,
-        uploadId
-      })
-    }).catch(error => {
-      console.error('Failed to trigger background classification:', error);
-    });
-
-    return response;
-
-    // The rest of the classification process will be handled by a background job
-    // This code is kept for reference but won't be executed in the main request
-    /*
     const allRequirements = await getRequirements(userId);
     const classifications: Classification[] = [];
 
@@ -264,6 +221,7 @@ export async function POST(request: Request) {
       const documentInfo = await RequirementsClassifier.fetchDocumentInformation(
         question,
         [documentId],
+        // sections.map(s => s.sectionId), // Pass all section IDs
         token,
         userId,
         req.id
@@ -309,6 +267,7 @@ export async function POST(request: Request) {
               documentInfo: {
                 type: 'document',
                 size: file.size,
+                // sectionCount: sections.length
               }
             },
             scores: {
@@ -379,7 +338,6 @@ export async function POST(request: Request) {
       message: `Document processed successfully. Matched with ${classifications.filter(c => c.isPrimary).length} out of ${allRequirements.length} requirements.`,
       uploadId
     });
-    */
   } catch (error) {
     sendProgressUpdate(uploadId, { 
       status: 'error',

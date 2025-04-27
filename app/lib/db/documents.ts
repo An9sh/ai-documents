@@ -30,16 +30,17 @@ export async function createDocument(document: Omit<DocumentMetadata, 'id'> & { 
       // Update existing document instead of creating a new one
       const [updatedDoc] = await db.update(documents)
         .set({
-          filename: document.filename,
-          fileKey: document.fileKey,
-          type: document.type,
-          size: document.size,
-          mimeType: document.mimeType,
-          userId: userId,
-          uploadedAt: document.uploadedAt,
-          summary: document.summary || '',
-          pageCount: document.pageCount || 0,
-          namespace: userId
+          [documents.filename.name]: document.filename,
+          [documents.fileKey.name]: document.fileKey,
+          [documents.type.name]: document.type,
+          [documents.size.name]: document.size,
+          [documents.mimeType.name]: document.mimeType,
+          [documents.userId.name]: userId,
+          [documents.uploadedAt.name]: document.uploadedAt,
+          [documents.summary.name]: document.summary || '',
+          [documents.pageCount.name]: document.pageCount || 0,
+          [documents.namespace.name]: userId,
+          [documents.pineconeId.name]: document.pineconeId
         })
         .where(eq(documents.pineconeId, document.pineconeId))
         .returning();
@@ -64,17 +65,17 @@ export async function createDocument(document: Omit<DocumentMetadata, 'id'> & { 
     const [newDocument] = await db.insert(documents)
       .values({
         id: uuidv4(),
-        pineconeId: document.pineconeId,
+        [documents.pineconeId.name]: document.pineconeId,
         filename: document.filename,
         fileKey: document.fileKey,
         type: document.type,
         size: document.size,
         mimeType: document.mimeType,
-        userId: userId,
-        uploadedAt: document.uploadedAt,
-        summary: document.summary || '',
-        pageCount: document.pageCount || 0,
-        namespace: userId
+        [documents.userId.name]: userId,
+        [documents.uploadedAt.name]: document.uploadedAt,
+        [documents.summary.name]: document.summary || '',
+        [documents.pageCount.name]: document.pageCount || 0,
+        [documents.namespace.name]: userId
       })
       .returning();
 
@@ -142,7 +143,7 @@ export async function deleteDocument(documentId: string, userId: string): Promis
 
     // 1. Update classifications to remove document reference
     await db.update(classifications)
-      .set({ documentId: null })
+      .set({ [classifications.documentId.name]: null })
       .where(and(
         eq(classifications.documentId, documentId),
         eq(classifications.userId, userId)
