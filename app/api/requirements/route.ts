@@ -12,10 +12,8 @@ interface Match {
 }
 
 export class RequirementsClassifier {
-
-
   static buildQuestionForRequirement(requirement: any) {
-    const baseQuestion = `Analyse the keywords and match them to the following requirements: "${requirement.name} and ${requirement.description}"?`;
+    const baseQuestion = `Analyse the content of the document and match them to the following requirements: "${requirement.name} and ${requirement.description}"?`;
     
     if (requirement.requirements && requirement.requirements.length > 0) {
       return `${baseQuestion} Specifically looking for documents that mention: ${requirement.requirements.join(', ')}`;
@@ -24,11 +22,21 @@ export class RequirementsClassifier {
     return baseQuestion;
   }
 
+  
+
 static async fetchDocumentInformation(question: string, documentIds: string[], token: string, userId: string, requirementId: string) {
   try {
     const apiUrl = process.env.VERCEL_URL 
       ? `https://${process.env.VERCEL_URL}`
       : process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+
+    // Get all requirements and find the matching one
+    const requirements = await getRequirements(userId);
+    const requirement = requirements.find(r => r.id === requirementId);
+
+    if (!requirement) {
+      throw new Error('Requirement not found');
+    }
 
     const response = await fetch(`${apiUrl}/api/question`, {
       method: 'POST',
@@ -41,7 +49,10 @@ static async fetchDocumentInformation(question: string, documentIds: string[], t
         documentIds,
         userId,
         requirementId,
-        requirement: question.split('"')[1]
+        requirement: {
+          ...requirement,
+          requirements: requirements  // Pass all requirements for context
+        }
       })
     });
 
@@ -50,14 +61,12 @@ static async fetchDocumentInformation(question: string, documentIds: string[], t
     }
 
     const data = await response.json();
-    // console.log("requirement:", question.split('"')[1]);
-    // console.log("data:", data)
     
     return {
       ...data,
       requirementId,
-      requirement: question.split('"')[1],
-      question: question
+      requirement: requirement.name,
+      question
     };
   } catch (error) {
     console.error('Error fetching document information:', error);

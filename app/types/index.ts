@@ -2,6 +2,7 @@ export type ConfidenceLevel = 'high' | 'medium' | 'low';
 export type ClassificationCategory = string;
 
 export interface DocumentMetadata {
+  [x: string]: any;
   id: string;
   pineconeId?: string;
   filename: string;
@@ -40,7 +41,7 @@ export interface ClassificationDetails {
     missing: string[];
   };
   text?: string;
-  metadata?: {
+  metadata: {
     documentId: string;
     filename: string;
     lines: {
@@ -60,7 +61,7 @@ export interface ClassificationDetails {
       sectionCount?: number;
     };
   };
-  scores?: {
+  scores: {
     vector: number;
     ai: number;
     final: number;
@@ -68,18 +69,47 @@ export interface ClassificationDetails {
 }
 
 export interface Classification {
-  documentName: string | undefined;
-  updatedAt: string | number | Date;
-  matchDetails: any;
   id: string;
   documentId: string;
   requirementId: string;
+  requirementText: string;
+  userId: string;
   score: number;
   confidence: ConfidenceLevel;
   isPrimary: boolean;
   isSecondary: boolean;
   isMatched: boolean;
-  details: ClassificationDetails;
+  documentName: string;
+  matchDetails: string[];
+  details: {
+    requirements: {
+      matched: string[];
+      missing: string[];
+    };
+    metadata: {
+      documentId: string;
+      filename: string;
+      lines: { from: number; to: number };
+      userId: string;
+      matchedAt: string;
+      confidence: ConfidenceLevel;
+      matchedRequirements: string[];
+      rawMatchReason: string;
+      threshold: number;
+      isMatched: boolean;
+      documentInfo: {
+        type: string;
+        size: number;
+      };
+    };
+    scores: {
+      vector: number;
+      ai: number;
+      final: number;
+    };
+  };
+  aiAnalysis?: string;
+  updatedAt: string | number | Date;
 }
 
 export interface ClassificationData {
@@ -88,16 +118,17 @@ export interface ClassificationData {
 
 export interface DocumentMatch {
   id: string;
-  documentId: string;
-  requirementId: string;
-  filename: string;
-  documentName?: string;
-  type: string;
-  size: number;
-  matchPercentage: number;
-  matchedRequirements: string[];
-  rawMatchReason: string;
+  documentId: string | null;
+  requirementId: string | null;
+  requirementText: string;
+  confidence: number;
   isMatched: boolean;
+  updatedAt: Date | null;
+  classificationId: string | null;
+  matchPercentage: number;
+  matchedAt: Date | null;
+  matchedRequirements: string[] | null;
+  rawMatchReason: string | null;
 }
 
 export interface RequirementData {

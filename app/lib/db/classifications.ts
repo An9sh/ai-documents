@@ -1,24 +1,17 @@
 import { db } from '../../lib/db';
 import { classifications } from '../../../db/schema';
 import { eq } from 'drizzle-orm';
-import { Classification } from '../../../app/types';
+import { Classification, ClassificationDetails } from '../../../app/types';
 import { ClassificationRequirement, ConfidenceLevel } from '../../../app/types/resume';
-import { v4 as uuidv4 } from 'uuid';
 import { documents } from '../../../db/schema';
 import { requirements } from '../../../db/schema';
+import { nanoid } from 'nanoid';
+import { documentMatches } from '../../../db/schema';
 
 function getConfidenceLevel(score: number): ConfidenceLevel {
   if (score >= 100) return 'high';
   if (score >= 75) return 'medium';
   return 'low';
-}
-
-function getConfidenceScore(level: ConfidenceLevel): number {
-  switch (level) {
-    case 'high': return 100;
-    case 'medium': return 75;
-    case 'low': return 50;
-  }
 }
 
 export async function getClassifications(documentId: string): Promise<Classification[]> {
@@ -30,75 +23,158 @@ export async function getClassifications(documentId: string): Promise<Classifica
     id: cls.id.toString(),
     documentId: cls.documentId?.toString() ?? '',
     requirementId: cls.requirementId?.toString() ?? '',
+    requirementText: (cls.details as any)?.metadata?.rawMatchReason ?? '',
+    userId: cls.userId?.toString() ?? '',
     score: cls.score,
     confidence: getConfidenceLevel(cls.confidence),
     isPrimary: cls.isPrimary,
     isSecondary: cls.isSecondary,
     isMatched: cls.isMatched,
-    details: cls.details as Classification['details'],
+    details: {
+      requirements: {
+        matched: Array.isArray((cls.details as any)?.requirements?.matched) ? (cls.details as any).requirements.matched : [],
+        missing: Array.isArray((cls.details as any)?.requirements?.missing) ? (cls.details as any).requirements.missing : []
+      },
+      metadata: {
+        documentId: cls.documentId?.toString() ?? '',
+        filename: '',
+        lines: { from: 0, to: 0 },
+        userId: cls.userId?.toString() ?? '',
+        matchedAt: new Date().toISOString(),
+        confidence: getConfidenceLevel(cls.confidence),
+        matchedRequirements: [],
+        rawMatchReason: (cls.details as any)?.metadata?.rawMatchReason ?? '',
+        threshold: (cls.details as any)?.metadata?.threshold ?? 0,
+        isMatched: cls.isMatched,
+        documentInfo: { type: 'document', size: 0 }
+      },
+      scores: {
+        vector: (cls.details as any)?.scores?.vector ?? 0,
+        ai: (cls.details as any)?.scores?.ai ?? 0,
+        final: cls.score
+      }
+    },
     documentName: '',
     updatedAt: new Date(),
-    matchDetails: cls.details
+    matchDetails: Array.isArray((cls.details as any)?.requirements?.matched) 
+      ? (cls.details as any).requirements.matched 
+      : []
   }));
 }
 
-export async function createClassification(classification: Omit<Classification, 'id'>): Promise<Classification> {
-  const [newClassification] = await db.insert(classifications)
-    .values({
-      id: uuidv4(),
-      document_id: classification.documentId,
-      requirement_id: classification.requirementId,
-      score: classification.score,
-      is_matched: classification.isMatched ?? false,
-      confidence: getConfidenceScore(classification.confidence),
-      is_primary: classification.isPrimary ?? false,
-      is_secondary: classification.isSecondary ?? false,
-      details: classification.details ?? {},
-      created_at: new Date(),
-      updated_at: new Date()
-    } as typeof classifications.$inferInsert)
-    .returning();
+export async function createClassification(classification: Classification) {
+  try {
+    // Verify document exists before creating classification
+    let document = await db.query.documents.findFirst({
+      where: eq(documents.id, classification.documentId)
+    });
 
-  return {
-    ...classification,
-    id: newClassification.id,
-    documentName: '',
-    updatedAt: new Date(),
-    matchDetails: classification.details
-  };
+    // Retry up to 3 times if document not found
+    let retries = 0;
+    while (!document && retries < 3) {
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
+      document = await db.query.documents.findFirst({
+        where: eq(documents.id, classification.documentId)
+      });
+      retries++;
+    }
+
+    if (!document) {
+      throw new Error(`Document ${classification.documentId} not found after ${retries} retries`);
+    }
+
+    const id = nanoid();
+    const confidence = classification.confidence === 'high' ? 3 :
+      classification.confidence === 'medium' ? 2 :
+      classification.confidence === 'low' ? 1 :
+      1;
+    
+    const result = await db.insert(classifications)
+      .values({
+        id,
+        documentId: classification.documentId,
+        requirementId: classification.requirementId,
+        userId: classification.userId,
+        score: classification.score,
+        confidence,
+        isPrimary: classification.isPrimary,
+        isSecondary: classification.isSecondary,
+        isMatched: classification.isMatched,
+        details: classification.details
+      })
+      .returning();
+
+    return result[0];
+  } catch (error) {
+    console.error('Error creating classification:', error);
+    throw error;
+  }
 }
 
-export async function updateClassification(classificationId: string, classification: Partial<Classification>): Promise<Classification> {
-  const [updatedClassification] = await db.update(classifications)
+export async function updateClassification(
+  id: string,
+  data: Partial<Classification>
+): Promise<Classification | null> {
+  const [updatedClassification] = await db
+    .update(classifications)
     .set({
-      score: classification.score,
-      confidence: classification.confidence ? getConfidenceScore(classification.confidence) : undefined,
-      is_primary: classification.isPrimary ?? false,
-      is_secondary: classification.isSecondary ?? false,
-      is_matched: classification.isMatched ?? false,
-      details: classification.details ?? {},
-      updated_at: new Date()
-    } as Partial<typeof classifications.$inferInsert>)
-    .where(eq(classifications.id, classificationId))
+      documentId: data.documentId || undefined,
+      requirementId: data.requirementId || undefined,
+      userId: data.userId || undefined,
+      score: data.score || 0,
+      confidence: data.score || 0,
+      isPrimary: data.isPrimary,
+      isSecondary: data.isSecondary,
+      isMatched: data.isMatched,
+      details: data.details,
+      matchedContent: Array.isArray(data.matchDetails) ? data.matchDetails : [],
+      updatedAt: new Date()
+    })
+    .where(eq(classifications.id, id))
     .returning();
 
-  if (!updatedClassification.documentId || !updatedClassification.requirementId) {
-    throw new Error('Invalid classification data');
-  }
+  if (!updatedClassification) return null;
 
   return {
-    id: updatedClassification.id.toString(),
-    documentId: updatedClassification.documentId.toString(),
-    requirementId: updatedClassification.requirementId.toString(),
+    id: updatedClassification.id,
+    documentId: updatedClassification.documentId || '',
+    requirementId: updatedClassification.requirementId || '',
+    requirementText: (updatedClassification.details as any)?.metadata?.rawMatchReason ?? '',
+    userId: updatedClassification.userId || '',
     score: updatedClassification.score,
-    confidence: getConfidenceLevel(updatedClassification.confidence),
+    confidence: getConfidenceLevel(updatedClassification.score),
     isPrimary: updatedClassification.isPrimary,
     isSecondary: updatedClassification.isSecondary,
     isMatched: updatedClassification.isMatched,
-    details: updatedClassification.details as Classification['details'],
+    details: {
+      requirements: {
+        matched: Array.isArray((updatedClassification.details as any)?.requirements?.matched) ? (updatedClassification.details as any).requirements.matched : [],
+        missing: Array.isArray((updatedClassification.details as any)?.requirements?.missing) ? (updatedClassification.details as any).requirements.missing : []
+      },
+      metadata: {
+        documentId: updatedClassification.documentId || '',
+        filename: '',
+        lines: { from: 0, to: 0 },
+        userId: updatedClassification.userId || '',
+        matchedAt: new Date().toISOString(),
+        confidence: getConfidenceLevel(updatedClassification.score),
+        matchedRequirements: [],
+        rawMatchReason: (updatedClassification.details as any)?.metadata?.rawMatchReason ?? '',
+        threshold: (updatedClassification.details as any)?.metadata?.threshold ?? 0,
+        isMatched: updatedClassification.isMatched,
+        documentInfo: { type: 'document', size: 0 }
+      },
+      scores: {
+        vector: (updatedClassification.details as any)?.scores?.vector ?? 0,
+        ai: (updatedClassification.details as any)?.scores?.ai ?? 0,
+        final: updatedClassification.score
+      }
+    },
     documentName: '',
     updatedAt: new Date(),
-    matchDetails: updatedClassification.details
+    matchDetails: Array.isArray((updatedClassification.details as any)?.requirements?.matched) 
+      ? (updatedClassification.details as any).requirements.matched 
+      : []
   };
 }
 
@@ -129,15 +205,42 @@ export async function getUserClassifications(userId: string): Promise<Classifica
     id: cls.id.toString(),
     documentId: cls.documentId?.toString() ?? '',
     requirementId: cls.requirementId?.toString() ?? '',
+    requirementText: (cls.details as any)?.metadata?.rawMatchReason ?? '',
+    userId: cls.userId?.toString() ?? '',
     score: cls.score,
     confidence: getConfidenceLevel(cls.confidence),
     isPrimary: cls.isPrimary,
     isSecondary: cls.isSecondary,
     isMatched: cls.isMatched,
-    details: cls.details as Classification['details'],
+    details: {
+      requirements: {
+        matched: Array.isArray((cls.details as any)?.requirements?.matched) ? (cls.details as any).requirements.matched : [],
+        missing: Array.isArray((cls.details as any)?.requirements?.missing) ? (cls.details as any).requirements.missing : []
+      },
+      metadata: {
+        documentId: cls.documentId?.toString() ?? '',
+        filename: '',
+        lines: { from: 0, to: 0 },
+        userId: cls.userId?.toString() ?? '',
+        matchedAt: new Date().toISOString(),
+        confidence: getConfidenceLevel(cls.confidence),
+        matchedRequirements: [],
+        rawMatchReason: (cls.details as any)?.metadata?.rawMatchReason ?? '',
+        threshold: (cls.details as any)?.metadata?.threshold ?? 0,
+        isMatched: cls.isMatched,
+        documentInfo: { type: 'document', size: 0 }
+      },
+      scores: {
+        vector: (cls.details as any)?.scores?.vector ?? 0,
+        ai: (cls.details as any)?.scores?.ai ?? 0,
+        final: cls.score
+      }
+    },
     documentName: '',
     updatedAt: new Date(),
-    matchDetails: cls.details
+    matchDetails: Array.isArray((cls.details as any)?.requirements?.matched) 
+      ? (cls.details as any).requirements.matched 
+      : []
   }));
 }
 
@@ -190,16 +293,21 @@ export async function getMatchedDocumentsForDashboard(userId: string) {
     requirementName: requirements.name,
     requirementCategory: requirements.category,
     requirementColor: requirements.color,
-
     matchScore: classifications.score,
     confidence: classifications.confidence,
     isPrimary: classifications.isPrimary,
     isSecondary: classifications.isSecondary,
-    details: classifications.details
+    details: classifications.details,
+    matchDetails: documentMatches.matchedRequirements,
+    matchReason: documentMatches.rawMatchReason,
+    isMatched: documentMatches.isMatched ?? false,
+    matchPercentage: documentMatches.matchPercentage,
+    matchedAt: documentMatches.matchedAt
   })
     .from(classifications)
     .innerJoin(documents, eq(documents.id, classifications.documentId))
     .innerJoin(requirements, eq(requirements.id, classifications.requirementId))
+    .leftJoin(documentMatches, eq(documentMatches.classificationId, classifications.id))
     .where(eq(documents.userId, userId))
     .orderBy(documents.uploadedAt);
 
@@ -224,7 +332,11 @@ export async function getMatchedDocumentsForDashboard(userId: string) {
       confidence: match.confidence,
       isPrimary: match.isPrimary,
       isSecondary: match.isSecondary,
-      matchDetails: match.details
+      matchDetails: match.matchDetails || [],
+      matchReason: match.matchReason || "No match reason provided",
+      isMatched: match.isMatched ?? false,
+      matchPercentage: match.matchPercentage,
+      matchedAt: match.matchedAt
     });
 
     return acc;
@@ -241,9 +353,12 @@ export async function getMatchedDocumentsForDashboard(userId: string) {
       confidence: number,
       isPrimary: boolean,
       isSecondary: boolean,
-      matchDetails: any
+      matchDetails: any[],
+      matchReason: string,
+      isMatched: boolean,
+      matchPercentage: number | null,
+      matchedAt: Date | null
     }>
   }>);
-
   return Object.values(groupedByDocument);
 } 

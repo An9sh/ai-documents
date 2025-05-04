@@ -88,8 +88,9 @@ export function ClassificationSection({
   // Group classifications by requirement
   const groupedClassifications = new Map<string, Classification[]>();
   classifications.forEach(classification => {
-    const existing = groupedClassifications.get(classification.requirementId) || [];
-    groupedClassifications.set(classification.requirementId, [...existing, classification]);
+    const requirementId = classification.requirementId || '';
+    const existing = groupedClassifications.get(requirementId) || [];
+    groupedClassifications.set(requirementId, [...existing, classification]);
   });
 
   useEffect(() => {

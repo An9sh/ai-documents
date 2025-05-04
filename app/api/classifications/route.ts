@@ -43,14 +43,22 @@ export async function GET(request: Request) {
           confidence: match.confidence,
           isPrimary: match.isPrimary,
           isSecondary: match.isSecondary,
-          isMatched: match.isPrimary || match.isSecondary,
+          isMatched: match.isMatched,
           details: {
-            ...match.matchDetails,
+            requirements: {
+              matched: match.matchDetails || [],
+              missing: []
+            },
             metadata: {
-              ...match.matchDetails?.metadata,
               documentId: doc.documentId,
               filename: doc.filename,
-              uploadedAt: doc.uploadedAt
+              uploadedAt: doc.uploadedAt,
+              confidence: match.confidence,
+              rawMatchReason: match.matchReason || "No reason provided",
+              isMatched: match.isMatched
+            },
+            scores: {
+              final: match.score
             }
           }
         });

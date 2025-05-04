@@ -25,6 +25,7 @@ export function prepareDocumentMatch(
   documentId: string,
   classificationId: string,
   requirementId: string,
+  requirementText: string,
   matchDetails: {
     vectorScore: number;
     aiScore: number;

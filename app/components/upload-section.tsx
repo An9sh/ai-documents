@@ -3,11 +3,11 @@
 import { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { DocumentMetadata } from '../types';
-import { CloudArrowUpIcon, CheckCircleIcon, XCircleIcon, ChevronDownIcon } from '@heroicons/react/24/outline';
+import { DocumentManager } from '../lib/DocumentManager';
+import { BackgroundJob } from '../lib/services/background-job';
 import { Dialog } from '@headlessui/react';
+import { CheckCircleIcon, XCircleIcon, ChevronDownIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '../contexts/auth-context';
-import { UploadProgress } from './upload-progress';
-import { v4 as uuidv4 } from 'uuid';
 
 interface UploadSectionProps {
   onUploadComplete: (documents: DocumentMetadata[]) => void;
@@ -27,122 +27,132 @@ interface MatchResult {
   requirement?: string;
 }
 
+// interface Classification {
+//   requirementId?: string;
+//   score?: {
+//     final?: number;
+//     vector?: number;
+//     ai?: number;
+//     threshold?: number;
+//   };
+//   confidence?: string;
+//   match?: boolean;
+//   reason?: string;
+//   requirement?: string;
+//   matchedContent?: string[];
+// }
+
 export function UploadSection({ onUploadComplete }: UploadSectionProps) {
-  const [uploadId, setUploadId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const [uploading, setUploading] = useState<boolean>(false);
   const [showResults, setShowResults] = useState(false);
+  const [expandedReasons, setExpandedReasons] = useState<Record<number, boolean>>({});
   const [uploadResults, setUploadResults] = useState<{
     document: DocumentMetadata;
     matchedRequirements: MatchResult[];
   } | null>(null);
   const { user } = useAuth();
-  const [expandedReasons, setExpandedReasons] = useState<Record<number, boolean>>({});
 
-  const onDrop = useCallback(async (acceptedFiles: File[]) => {
-    if (acceptedFiles.length > 1) {
-      setError('Please upload only one PDF file at a time');
-      return;
-    }
+  // app/components/upload-section.tsx
+const onDrop = useCallback(async (acceptedFiles: File[]) => {
+  if (!user) {
+    setError('Please sign in to upload documents');
+    return;
+  }
 
-    const file = acceptedFiles[0];
-    if (file.type !== 'application/pdf') {
-      setError('Please upload a PDF file');
-      return;
-    }
+  const manager = new DocumentManager();
 
-    if (file.size > 10 * 1024 * 1024) { // 10MB limit
-      setError('File size exceeds 10MB limit');
-      return;
-    }
-
+  try {
     setError(null);
-    setUploadResults(null);
-    const newUploadId = uuidv4();
-    setUploadId(newUploadId);
+    setUploadProgress(0);
+    setUploading(true);
+    setShowResults(false);
+    setExpandedReasons({});
 
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
+    const token = await user.getIdToken();
+    const documents = await manager.uploadDocuments(acceptedFiles, user.uid, token);
+    console.log('Raw documents:', documents);
 
-      const response = await fetch('/api/upload', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${await user?.getIdToken()}`,
-          'X-Upload-Id': newUploadId
-        },
-        body: formData
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Upload failed');
-      }
-
-      const data = await response.json();
-      onUploadComplete([data.document]);
-      setUploadResults(data);
-      setShowResults(true);
-      setUploadId(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Upload failed');
-      setUploadId(null);
+    const jobId = documents[0]?.uploadId;
+    if (!jobId) {
+      throw new Error('No jobId found in upload response');
     }
-  }, [onUploadComplete, user]);
+
+    const jobResult = await BackgroundJob.getJobResult(jobId, token);
+    console.log('Job result:', jobResult);
+
+    const transformedResults = {
+      document: jobResult.document || documents[0],
+      matchedRequirements: (jobResult.classifications || []).map((match: any) => ({
+        documentId: match.documentId,
+        requirementId: match.requirementId,
+        score: match.score,
+        confidence: match.confidence,
+        isMatched: match.isMatched,
+        reason: match.reason,
+        threshold: match.threshold,
+        vectorScore: match.vectorScore,
+        aiScore: match.aiScore,
+        matchedContent: match.matchedContent,
+        requirement: match.requirement,
+      })),
+    };
+
+    setUploadResults(transformedResults);
+    setShowResults(true);
+    onUploadComplete([jobResult.document || documents[0]]);
+
+  } catch (err) {
+    console.error(err);
+    setError(err instanceof Error ? err.message : 'Upload failed');
+  } finally {
+    setUploading(false);
+    setUploadProgress(100);
+  }
+}, [user, onUploadComplete]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: {
-      'application/pdf': ['.pdf']
-    },
-    maxFiles: 1,
-    multiple: false
+    accept: { 'application/pdf': ['.pdf'] },
+    maxSize: 10 * 1024 * 1024, // 10 MB limit
+    multiple: true
   });
 
   return (
-    <>
-      <div className="bg-white shadow rounded-lg p-6">
-        <div
-          {...getRootProps()}
-          className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
-            isDragActive ? 'border-indigo-500 bg-indigo-50' : 'border-gray-300 hover:border-indigo-500'
-          } ${uploadId ? 'opacity-50 cursor-not-allowed' : ''}`}
-        >
-          <input {...getInputProps()} disabled={!!uploadId} />
-          <CloudArrowUpIcon className={`mx-auto h-12 w-12 text-gray-400`} />
-          <div className="mt-4">
-            <p className="text-sm font-medium text-gray-900">
-              {isDragActive 
-                ? 'Drop the files here' 
-                : 'Drag and drop files here, or click to select files'}
-            </p>
-            <p className="mt-1 text-xs text-gray-500">
-              PDF files up to 10MB
-            </p>
-          </div>
-          {error && (
-            <div className="mt-4 p-3 bg-red-50 rounded-md">
-              <p className="text-sm text-red-700">{error}</p>
-            </div>
-          )}
-        </div>
-
-        {uploadId && (
-          <div className="mt-4">
-            <UploadProgress
-              uploadId={uploadId}
-              onComplete={() => {
-                setUploadId(null);
-                setError(null);
-              }}
-              onError={(errorMessage) => {
-                setError(errorMessage);
-                setUploadId(null);
-              }}
-            />
-          </div>
+    <div className="space-y-6">
+      {/* Upload box */}
+      <div {...getRootProps()} className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-gray-400 transition-colors">
+        <input {...getInputProps()} />
+        {isDragActive ? (
+          <p>Drop your PDF files here...</p>
+        ) : (
+          <p>Drag & drop PDF files here, or click to select</p>
         )}
+        <p className="text-sm text-gray-500 mt-2">Up to 10 PDFs (max 10MB each)</p>
       </div>
 
+      {/* Error message */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+          {error}
+        </div>
+      )}
+
+      {/* Progress Bar */}
+      {uploading && (
+        <div className="mt-4">
+          <div className="text-sm text-gray-500 mb-2">Uploading... {uploadProgress}%</div>
+          <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
+            <div
+              className="bg-indigo-600 h-2.5 rounded-full"
+              style={{ width: `${uploadProgress}%` }}
+            ></div>
+          </div>
+        </div>
+      )}
+
+      {/* Results Dialog */}
       <Dialog
         open={showResults}
         onClose={() => setShowResults(false)}
@@ -222,7 +232,7 @@ export function UploadSection({ onUploadComplete }: UploadSectionProps) {
                             {match.matchedContent && match.matchedContent.length > 0 && (
                               <div className="mt-2">
                                 <p className="text-sm font-medium text-gray-900">Matched Content:</p>
-                                <ul className="mt-1 space-y-1">
+                                <ul className="mt-1 space-y-1 max-h-40 overflow-y-auto">
                                   {match.matchedContent.map((content, idx) => (
                                     <li key={idx} className="text-sm text-gray-600 pl-4 border-l-2 border-gray-200">
                                       {content}
@@ -260,6 +270,6 @@ export function UploadSection({ onUploadComplete }: UploadSectionProps) {
           </Dialog.Panel>
         </div>
       </Dialog>
-    </>
+    </div>
   );
-} 
+}
