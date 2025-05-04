@@ -27,8 +27,20 @@ export class RequirementsClassifier {
 static async fetchDocumentInformation(question: string, documentIds: string[], token: string, userId: string, requirementId: string) {
   try {
     // Get the base URL for the API
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 
-                   (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
+    let baseUrl = process.env.NEXT_PUBLIC_API_URL;
+    
+    if (!baseUrl) {
+      if (process.env.VERCEL_URL) {
+        baseUrl = `https://${process.env.VERCEL_URL}`;
+      } else {
+        baseUrl = 'http://localhost:3000';
+      }
+    }
+
+    // Ensure the URL has a protocol
+    if (!baseUrl.startsWith('http://') && !baseUrl.startsWith('https://')) {
+      baseUrl = `https://${baseUrl}`;
+    }
 
     // Get all requirements and find the matching one
     const requirements = await getRequirements(userId);
@@ -38,7 +50,8 @@ static async fetchDocumentInformation(question: string, documentIds: string[], t
       throw new Error('Requirement not found');
     }
 
-    console.log('Fetching document information from:', `${baseUrl}/api/question`);
+    const apiUrl = `${baseUrl}/api/question`;
+    console.log('Fetching document information from:', apiUrl);
     console.log('Request body:', {
       question,
       documentIds,
@@ -50,7 +63,7 @@ static async fetchDocumentInformation(question: string, documentIds: string[], t
       }
     });
 
-    const response = await fetch(`${baseUrl}/api/question`, {
+    const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
