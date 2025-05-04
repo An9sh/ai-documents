@@ -54,7 +54,7 @@ static async fetchDocumentInformation(question: string, documentIds: string[], t
     console.log('Fetching document information from:', apiUrl);
 
     // Format the token properly
-    // const authToken = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
+    //  const authToken = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
     
     const requestBody = {
       question,
@@ -73,7 +73,7 @@ static async fetchDocumentInformation(question: string, documentIds: string[], t
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': token
+        'Authorization': `Bearer ${token}`
       },
       body: JSON.stringify(requestBody)
     });
