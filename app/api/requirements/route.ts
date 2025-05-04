@@ -26,9 +26,9 @@ export class RequirementsClassifier {
 
 static async fetchDocumentInformation(question: string, documentIds: string[], token: string, userId: string, requirementId: string) {
   try {
-    const apiUrl = process.env.VERCEL_URL 
-      ? `https://${process.env.VERCEL_URL}`
-      : process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+    // Get the base URL for the API
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 
+                   (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
 
     // Get all requirements and find the matching one
     const requirements = await getRequirements(userId);
@@ -38,7 +38,19 @@ static async fetchDocumentInformation(question: string, documentIds: string[], t
       throw new Error('Requirement not found');
     }
 
-    const response = await fetch(`${apiUrl}/api/question`, {
+    console.log('Fetching document information from:', `${baseUrl}/api/question`);
+    console.log('Request body:', {
+      question,
+      documentIds,
+      userId,
+      requirementId,
+      requirement: {
+        ...requirement,
+        requirements: requirements
+      }
+    });
+
+    const response = await fetch(`${baseUrl}/api/question`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -51,16 +63,23 @@ static async fetchDocumentInformation(question: string, documentIds: string[], t
         requirementId,
         requirement: {
           ...requirement,
-          requirements: requirements  // Pass all requirements for context
+          requirements: requirements
         }
       })
     });
 
     if (!response.ok) {
-      throw new Error('Failed to fetch document information');
+      const errorText = await response.text();
+      console.error('API response error:', {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorText
+      });
+      throw new Error(`Failed to fetch document information: ${response.status} ${response.statusText}`);
     }
 
     const data = await response.json();
+    console.log('API response data:', data);
     
     return {
       ...data,
@@ -70,7 +89,7 @@ static async fetchDocumentInformation(question: string, documentIds: string[], t
     };
   } catch (error) {
     console.error('Error fetching document information:', error);
-    return null;
+    throw error; // Re-throw the error to be handled by the caller
   }
 }
 }
