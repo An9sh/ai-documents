@@ -18,14 +18,14 @@ export async function POST(request: Request) {
 
     const formData = await request.formData();
     const file = formData.get('file') as File;
-    const userId = formData.get('userId') as string;
 
-    if (!file || !userId) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    if (!file) {
+      return NextResponse.json({ error: 'Missing file' }, { status: 400 });
     }
 
-    // Use the original token since we've already verified it
-    console.log('Using verified token for background job');
+    // Use userId from the verified token
+    const userId = decodedToken.uid;
+    console.log('Using verified token and userId for background job');
 
     const result = await BackgroundJob.processDocument(
       {
@@ -34,8 +34,8 @@ export async function POST(request: Request) {
         size: file.size,
         arrayBuffer: () => file.arrayBuffer()
       },
-      userId,
-      token, // Use the original verified token
+      userId, // Use userId from token
+      token,
       crypto.randomUUID()
     );
 
