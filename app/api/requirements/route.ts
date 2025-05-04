@@ -52,7 +52,20 @@ static async fetchDocumentInformation(question: string, documentIds: string[], t
 
     const apiUrl = `${baseUrl}/api/question`;
     console.log('Fetching document information from:', apiUrl);
-    console.log('Request body:', {
+
+    // Verify the token first
+    try {
+      await verifyFirebaseToken(token);
+    } catch (error) {
+      console.error('Token verification failed:', error);
+      throw new Error('Invalid authentication token');
+    }
+
+    // Remove any existing 'Bearer ' prefix and add it back
+    const cleanToken = token.replace(/^Bearer\s+/i, '');
+    const authToken = `Bearer ${cleanToken}`;
+    
+    const requestBody = {
       question,
       documentIds,
       userId,
@@ -61,24 +74,19 @@ static async fetchDocumentInformation(question: string, documentIds: string[], t
         ...requirement,
         requirements: requirements
       }
-    });
+    };
+
+    console.log('Request body:', requestBody);
+    console.log('Using auth token:', authToken.substring(0, 20) + '...');
 
     const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
+        'Authorization': authToken,
+        'X-User-ID': userId
       },
-      body: JSON.stringify({
-        question,
-        documentIds,
-        userId,
-        requirementId,
-        requirement: {
-          ...requirement,
-          requirements: requirements
-        }
-      })
+      body: JSON.stringify(requestBody)
     });
 
     if (!response.ok) {
@@ -86,8 +94,14 @@ static async fetchDocumentInformation(question: string, documentIds: string[], t
       console.error('API response error:', {
         status: response.status,
         statusText: response.statusText,
-        error: errorText
+        error: errorText,
+        headers: Object.fromEntries(response.headers.entries())
       });
+      
+      if (response.status === 401) {
+        throw new Error('Authentication failed. Please try logging in again.');
+      }
+      
       throw new Error(`Failed to fetch document information: ${response.status} ${response.statusText}`);
     }
 
@@ -102,7 +116,7 @@ static async fetchDocumentInformation(question: string, documentIds: string[], t
     };
   } catch (error) {
     console.error('Error fetching document information:', error);
-    throw error; // Re-throw the error to be handled by the caller
+    throw error;
   }
 }
 }
