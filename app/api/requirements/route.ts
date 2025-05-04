@@ -53,22 +53,12 @@ static async fetchDocumentInformation(question: string, documentIds: string[], t
     const apiUrl = `${baseUrl}/api/question`;
     console.log('Fetching document information from:', apiUrl);
 
-    // Verify the token first
-    try {
-      await verifyFirebaseToken(token);
-    } catch (error) {
-      console.error('Token verification failed:', error);
-      throw new Error('Invalid authentication token');
-    }
-
-    // Remove any existing 'Bearer ' prefix and add it back
-    const cleanToken = token.replace(/^Bearer\s+/i, '');
-    const authToken = `Bearer ${cleanToken}`;
+    // Format the token properly
+    const authToken = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
     
     const requestBody = {
       question,
       documentIds,
-      userId,
       requirementId,
       requirement: {
         ...requirement,
@@ -83,8 +73,7 @@ static async fetchDocumentInformation(question: string, documentIds: string[], t
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': authToken,
-        'X-User-ID': userId
+        'Authorization': authToken
       },
       body: JSON.stringify(requestBody)
     });

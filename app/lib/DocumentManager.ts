@@ -19,7 +19,6 @@ export class DocumentManager {
         // Upload file to API endpoint
         const formData = new FormData();
         formData.append('file', file);
-        formData.append('userId', userId);
 
         const response = await fetch('/api/process-document', {
           method: 'POST',
@@ -30,7 +29,8 @@ export class DocumentManager {
         });
 
         if (!response.ok) {
-          throw new Error('Failed to process document');
+          const errorText = await response.text();
+          throw new Error(`Failed to process document: ${errorText}`);
         }
 
         const result = await response.json();
