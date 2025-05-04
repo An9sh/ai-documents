@@ -54,7 +54,7 @@ static async fetchDocumentInformation(question: string, documentIds: string[], t
     console.log('Fetching document information from:', apiUrl);
 
     // Format the token properly
-    const authToken = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
+    // const authToken = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
     
     const requestBody = {
       question,
@@ -67,13 +67,13 @@ static async fetchDocumentInformation(question: string, documentIds: string[], t
     };
 
     console.log('Request body:', requestBody);
-    console.log('Using auth token:', authToken.substring(0, 20) + '...');
+    // console.log('Using auth token:', authToken.substring(0, 20) + '...');
 
     const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': authToken
+        'Authorization': token
       },
       body: JSON.stringify(requestBody)
     });

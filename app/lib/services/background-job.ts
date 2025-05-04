@@ -77,13 +77,13 @@ export class BackgroundJob {
           console.log(`Generated question: ${question}`);
           
           // Ensure token is properly formatted
-          const authToken = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
-          console.log('Using auth token for document information fetch:', authToken);
+          // const authToken = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
+          // console.log('Using auth token for document information fetch:', authToken);
           
           const documentInfo = await RequirementsClassifier.fetchDocumentInformation(
             question,
             [documentId],
-            authToken,
+            token,
             userId,
             req.id
           );
