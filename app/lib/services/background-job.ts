@@ -78,6 +78,7 @@ export class BackgroundJob {
           
           // Ensure token is properly formatted
           const authToken = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
+          console.log('Using auth token for document information fetch:', authToken);
           
           const documentInfo = await RequirementsClassifier.fetchDocumentInformation(
             question,
@@ -88,6 +89,7 @@ export class BackgroundJob {
           );
 
           if (!documentInfo || !documentInfo.matches?.length) {
+            console.log('No document info or matches found');
             continue;
           }
 
@@ -95,8 +97,6 @@ export class BackgroundJob {
           const vectorScore = match.score || 0;
           const aiScore = match.aiScore || 0;
           const finalScore = Math.round(vectorScore);
-        //   console.log("This is a finalScore:", documentInfo)
-          // Consider both vector score and AI's match determination
           const isMatch = documentInfo.matchDetails?.match === true || finalScore >= req.matchThreshold;
           
           const dbClassification = await createClassification({
