@@ -18,9 +18,9 @@ export async function POST(request: Request) {
 
     const formData = await request.formData();
     const file = formData.get('file') as File;
-    const userId = formData.get('userId') as string;
+    // const userId = formData.get('userId') as string;
 
-    if (!file || !userId) {
+    if (!file || !decodedToken.uid) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
@@ -31,7 +31,7 @@ export async function POST(request: Request) {
         size: file.size,
         arrayBuffer: () => file.arrayBuffer()
       },
-      userId,
+      decodedToken.uid,
       token,
       crypto.randomUUID()
     );

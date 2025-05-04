@@ -192,19 +192,6 @@ export class DocumentAnalyzer {
         .replace(/```json|```/g, '')
         .replace(/\n/g, ' ')
         .replace(/\s+/g, ' ');
-      // Clean up common issues (smart quotes, single quotes)
-      // const cleaned = jsonMatch[0]
-      //   .replace(/[""]/g, '"')  // Replace smart quotes with regular quotes
-      //   .replace(/['']/g, "'")  // Replace smart single quotes
-      //   .replace(/'/g, '"')     // Replace single quotes with double quotes
-      //   .replace(/\n/g, " ")    // Remove newlines
-      //   .replace(/\r/g, " ")    // Remove carriage returns
-      //   .replace(/\t/g, " ")    // Remove tabs
-      //   .replace(/\s+/g, " ")   // Normalize spaces
-      //   .replace(/([^\\])"([^"]*?)([^\\])"/g, '$1"$2$3"') // Fix unescaped quotes in text
-      //   .trim();
-
-    //   console.log("Cleaned JSON:", cleaned);
 
       try {
         // Attempt to repair bad inner quotes inside the reason string
@@ -214,7 +201,6 @@ export class DocumentAnalyzer {
           return `"reason": "${escaped}"`;
         });
     
-      
         const parsed = JSON.parse(safeJson);
       
         if (typeof parsed.match !== 'boolean' || typeof parsed.reason !== 'string') {
