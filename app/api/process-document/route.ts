@@ -24,9 +24,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    // Get a fresh token for the background job
-    const freshToken = await decodedToken.getIdToken(true);
-    console.log('Using fresh token for background job');
+    // Use the original token since we've already verified it
+    console.log('Using verified token for background job');
 
     const result = await BackgroundJob.processDocument(
       {
@@ -36,7 +35,7 @@ export async function POST(request: Request) {
         arrayBuffer: () => file.arrayBuffer()
       },
       decodedToken.uid,
-      freshToken, // Use the fresh token
+      token, // Use the original verified token
       crypto.randomUUID()
     );
 
