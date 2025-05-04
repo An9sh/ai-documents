@@ -25,6 +25,9 @@ export async function POST(request: Request) {
 
     // Use userId from the verified token
     const userId = decodedToken.uid;
+    
+    // Ensure token is properly formatted
+    const authToken = `Bearer ${token}`;
     console.log('Using verified token and userId for background job');
 
     const result = await BackgroundJob.processDocument(
@@ -34,8 +37,8 @@ export async function POST(request: Request) {
         size: file.size,
         arrayBuffer: () => file.arrayBuffer()
       },
-      userId, // Use userId from token
-      token,
+      userId,
+      authToken, // Pass the properly formatted token
       crypto.randomUUID()
     );
 

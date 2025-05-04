@@ -24,6 +24,13 @@ export class BackgroundJob {
     try {
       console.log('Starting document processing...');
 
+      // Update progress for file upload start
+      await sendProgressUpdate(uploadId, {
+        status: 'uploading',
+        message: `Uploading ${file.name}...`,
+        progress: 0
+      });
+
       // Step 1: Process the file and upload sections to Pinecone
       await DocumentProcessor.processDocument(file, userId, documentId);
       console.log('Document processed and embedded in Pinecone');
@@ -69,10 +76,13 @@ export class BackgroundJob {
           const question = RequirementsClassifier.buildQuestionForRequirement(req);
           console.log(`Generated question: ${question}`);
           
+          // Ensure token is properly formatted
+          const authToken = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
+          
           const documentInfo = await RequirementsClassifier.fetchDocumentInformation(
             question,
             [documentId],
-            token,
+            authToken,
             userId,
             req.id
           );
