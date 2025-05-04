@@ -29,8 +29,6 @@ export class DocumentManager {
           body: formData
         });
 
-        console.log('This is a Response:', response);
-
         if (!response.ok) {
           throw new Error('Failed to process document');
         }

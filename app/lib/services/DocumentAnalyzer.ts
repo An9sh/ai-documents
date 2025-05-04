@@ -166,19 +166,19 @@ export class DocumentAnalyzer {
       {
         role: "user",
         content: `Requirement: ${requirement}
-Vector similarity score: ${Math.round(score * 100)}%
-Context:
-${context}
+        Vector similarity score: ${Math.round(score * 100)}%
+        Context:
+        ${context}
 
-Does the document meet the requirement? Respond with ONLY a JSON object like this:
-{"match": true|false, "reason": "..."}`,
-      }
+        Does the document meet the requirement? Respond with ONLY a JSON object like this:
+        {"match": true|false, "reason": "..."}`,
+              }
     ];
 
     try {
       const res = await chat.invoke(messages);
       const raw = res?.content?.toString() ?? "";
-    //   console.log("Raw LLM response:", raw);
+       console.log("Raw LLM response:", raw);
 
       // Attempt to extract JSON blob safely
       const jsonMatch = raw.match(/\{[\s\S]*\}/);
@@ -187,17 +187,22 @@ Does the document meet the requirement? Respond with ONLY a JSON object like thi
         throw new Error("No JSON found in LLM response");
       }
 
-      // Clean up common issues (smart quotes, single quotes)
       const cleaned = jsonMatch[0]
-        .replace(/[""]/g, '"')  // Replace smart quotes with regular quotes
-        .replace(/['']/g, "'")  // Replace smart single quotes
-        .replace(/'/g, '"')     // Replace single quotes with double quotes
-        .replace(/\n/g, " ")    // Remove newlines
-        .replace(/\r/g, " ")    // Remove carriage returns
-        .replace(/\t/g, " ")    // Remove tabs
-        .replace(/\s+/g, " ")   // Normalize spaces
-        .replace(/([^\\])"([^"]*?)([^\\])"/g, '$1"$2$3"') // Fix unescaped quotes in text
-        .trim();
+        .replace(/,(\s*[}\]])/g, '$1')
+        .replace(/```json|```/g, '')
+        .replace(/\n/g, ' ')
+        .replace(/\s+/g, ' ');
+      // Clean up common issues (smart quotes, single quotes)
+      // const cleaned = jsonMatch[0]
+      //   .replace(/[""]/g, '"')  // Replace smart quotes with regular quotes
+      //   .replace(/['']/g, "'")  // Replace smart single quotes
+      //   .replace(/'/g, '"')     // Replace single quotes with double quotes
+      //   .replace(/\n/g, " ")    // Remove newlines
+      //   .replace(/\r/g, " ")    // Remove carriage returns
+      //   .replace(/\t/g, " ")    // Remove tabs
+      //   .replace(/\s+/g, " ")   // Normalize spaces
+      //   .replace(/([^\\])"([^"]*?)([^\\])"/g, '$1"$2$3"') // Fix unescaped quotes in text
+      //   .trim();
 
     //   console.log("Cleaned JSON:", cleaned);
 
@@ -205,8 +210,10 @@ Does the document meet the requirement? Respond with ONLY a JSON object like thi
         // Attempt to repair bad inner quotes inside the reason string
         const safeJson = cleaned.replace(/"reason":\s*"([^"]*?)(?<!\\)"/, (match, group) => {
           const escaped = group.replace(/"/g, '\\"');
+          console.log("Match:", match, "Group:", group, "Escaped:", escaped);
           return `"reason": "${escaped}"`;
         });
+    
       
         const parsed = JSON.parse(safeJson);
       

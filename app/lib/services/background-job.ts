@@ -219,14 +219,4 @@ export class BackgroundJob {
       throw error;
     }
   }
-
-  static async getJobResult(jobId: string, token: string) {
-    const res = await fetch(`/api/background-job/${jobId}`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
-    if (!res.ok) throw new Error('Failed to fetch job result');
-    return await res.json();
-  }
 }

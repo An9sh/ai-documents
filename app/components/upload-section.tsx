@@ -54,69 +54,92 @@ export function UploadSection({ onUploadComplete }: UploadSectionProps) {
   } | null>(null);
   const { user } = useAuth();
 
-  // app/components/upload-section.tsx
-const onDrop = useCallback(async (acceptedFiles: File[]) => {
-  if (!user) {
-    setError('Please sign in to upload documents');
-    return;
-  }
-
-  const manager = new DocumentManager();
-
-  try {
-    setError(null);
-    setUploadProgress(0);
-    setUploading(true);
-    setShowResults(false);
-    setExpandedReasons({});
-
-    const token = await user.getIdToken();
-    const documents = await manager.uploadDocuments(acceptedFiles, user.uid, token);
-    console.log('Raw documents:', documents);
-
-    const jobId = documents[0]?.uploadId;
-    if (!jobId) {
-      throw new Error('No jobId found in upload response');
+  const onDrop = useCallback(async (acceptedFiles: File[]) => {
+    if (!user) {
+      setError('Please sign in to upload documents');
+      return;
     }
 
-    const jobResult = await BackgroundJob.getJobResult(jobId, token);
-    console.log('Job result:', jobResult);
+    if (acceptedFiles.length > 10) {
+      setError('You can upload up to 10 PDF files at once');
+      return;
+    }
 
-    const transformedResults = {
-      document: jobResult.document || documents[0],
-      matchedRequirements: (jobResult.classifications || []).map((match: any) => ({
-        documentId: match.documentId,
-        requirementId: match.requirementId,
-        score: match.score,
-        confidence: match.confidence,
-        isMatched: match.isMatched,
-        reason: match.reason,
-        threshold: match.threshold,
-        vectorScore: match.vectorScore,
-        aiScore: match.aiScore,
-        matchedContent: match.matchedContent,
-        requirement: match.requirement,
-      })),
-    };
+    const manager = new DocumentManager();
 
-    setUploadResults(transformedResults);
-    setShowResults(true);
-    onUploadComplete([jobResult.document || documents[0]]);
+    try {
+      setError(null);
+      setUploadProgress(0);
+      setUploading(true);
+      setShowResults(false);
+      setExpandedReasons({});
 
-  } catch (err) {
-    console.error(err);
-    setError(err instanceof Error ? err.message : 'Upload failed');
-  } finally {
-    setUploading(false);
-    setUploadProgress(100);
-  }
-}, [user, onUploadComplete]);
+      const token = await user.getIdToken();
+      const documents = await manager.uploadDocuments(acceptedFiles, user.uid, token);
+      console.log('Raw documents:', documents);
+      
+      // Transform the documents into the expected format
+      const transformedResults = {
+        document: documents[0], // Assuming we're handling one document at a time
+        matchedRequirements: documents.map(doc => {
+          console.log('Processing document:', doc);
+          
+          // If the document has classifications, use those
+          if (doc.classifications && Array.isArray(doc.classifications)) {
+            return doc.classifications.map((classification: any) => {
+              console.log('Processing classification:', classification);
+              return {
+                documentId: doc.id,
+                requirementId: classification.requirementId || doc.id,
+                score: classification.score || 0,
+                confidence: classification.confidence || 'medium',
+                isMatched: classification.match || false,
+                reason: classification.reason || classification.explanation || 'No reason provided',
+                threshold: 0.65,
+                vectorScore: classification.vectorScore || 0,
+                aiScore: classification.aiScore || 0,
+                requirement: classification.requirement || classification.name || 'Unnamed Requirement',
+                matchedContent: classification.matchedContent || []
+              };
+            });
+          }
+
+          // If no classifications, create a default match result
+          return {
+            documentId: doc.id,
+            requirementId: doc.id,
+            score: doc.score || 0,
+            confidence: 'medium',
+            isMatched: doc.isMatched || false,
+            reason: doc.reason || doc.explanation || 'No reason provided',
+            threshold: 0.65,
+            vectorScore: doc.vectorScore || 0,
+            aiScore: doc.aiScore || 0,
+            requirement: doc.requirement || doc.name || 'Unnamed Requirement',
+            matchedContent: []
+          };
+        }).flat() // Flatten the array of arrays
+      };
+      
+      console.log('Transformed results:', transformedResults);
+      setUploadResults(transformedResults);
+      onUploadComplete(documents);
+      setShowResults(true);
+
+    } catch (err) {
+      console.error(err);
+      setError(err instanceof Error ? err.message : 'Upload failed');
+    } finally {
+      setUploading(false);
+      setUploadProgress(100);
+    }
+  }, [user, onUploadComplete]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: { 'application/pdf': ['.pdf'] },
     maxSize: 10 * 1024 * 1024, // 10 MB limit
-    multiple: true
+    multiple: true // ✅ Allow multiple files
   });
 
   return (
@@ -187,7 +210,7 @@ const onDrop = useCallback(async (acceptedFiles: File[]) => {
                           <div className="flex-grow">
                             <div className="flex flex-wrap items-center gap-2 mb-2">
                               <span className="text-sm font-medium text-gray-900">
-                                {match.requirement || 'Unnamed Requirement'}
+                                {match.matchedContent || 'Unnamed Requirement'}
                               </span>
                             </div>
                             <div className="flex flex-wrap items-center gap-2">
@@ -232,7 +255,7 @@ const onDrop = useCallback(async (acceptedFiles: File[]) => {
                             {match.matchedContent && match.matchedContent.length > 0 && (
                               <div className="mt-2">
                                 <p className="text-sm font-medium text-gray-900">Matched Content:</p>
-                                <ul className="mt-1 space-y-1 max-h-40 overflow-y-auto">
+                                <ul className="mt-1 space-y-1">
                                   {match.matchedContent.map((content, idx) => (
                                     <li key={idx} className="text-sm text-gray-600 pl-4 border-l-2 border-gray-200">
                                       {content}
