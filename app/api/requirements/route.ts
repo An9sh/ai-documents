@@ -78,6 +78,8 @@ static async fetchDocumentInformation(question: string, documentIds: string[], t
       body: JSON.stringify(requestBody)
     });
 
+    console.log('This is a Response from the requirements route:', response);
+
     if (!response.ok) {
       const errorText = await response.text();
       console.error('API response error:', {
