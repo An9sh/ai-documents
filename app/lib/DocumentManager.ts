@@ -123,7 +123,8 @@ export class DocumentManager {
             
             console.log(`Verification attempt ${retryCount + 1}/${maxRetries} for document:`, result.documentId);
             
-            const verifyResponse = await fetch(`/api/verify-document?documentId=${result.documentId}`, {
+            const vercelUrl = process.env.NEXT_PUBLIC_VERCEL_URL || 'http://localhost:3000';
+            const verifyResponse = await fetch(`${vercelUrl}/api/verify-document?documentId=${result.documentId}`, {
               headers: {
                 'Authorization': `Bearer ${token}`
               }
