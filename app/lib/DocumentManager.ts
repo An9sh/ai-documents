@@ -70,7 +70,7 @@ export class DocumentManager {
         );
 
         try {
-          const response = await fetch(`/api/process-document`, {
+          const response = await fetch(`${baseUrl}/api/process-document`, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${token}`,
