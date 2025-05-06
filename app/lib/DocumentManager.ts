@@ -73,14 +73,18 @@ export class DocumentManager {
           console.error('Upload error:', {
             status: response.status,
             statusText: response.statusText,
-            error: errorText
+            error: errorText,
+            baseUrl,
+            uploadId
           });
-          throw new Error(`Failed to upload document: ${response.statusText}`);
+          throw new Error(`Failed to upload document: ${errorText || response.statusText}`);
         }
 
         const result = await response.json();
+        console.log('Process document response:', result);
         
         if (!result.documentId) {
+          console.error('Invalid server response:', result);
           throw new Error('No document ID received from server');
         }
 
@@ -129,7 +133,14 @@ export class DocumentManager {
             );
 
             if (!verifyResponse.ok) {
-              throw new Error(`Document verification failed: ${verifyResponse.statusText}`);
+              const errorText = await verifyResponse.text();
+              console.error('Verification error:', {
+                status: verifyResponse.status,
+                statusText: verifyResponse.statusText,
+                error: errorText,
+                documentId: result.documentId
+              });
+              throw new Error(`Document verification failed: ${errorText || verifyResponse.statusText}`);
             }
 
             const verifyResult = await verifyResponse.json();
@@ -180,10 +191,19 @@ export class DocumentManager {
                 });
 
                 if (!response.ok) {
-                  throw new Error(`Failed to process requirement: ${response.statusText}`);
+                  const errorText = await response.text();
+                  console.error('Question API error:', {
+                    status: response.status,
+                    statusText: response.statusText,
+                    error: errorText,
+                    documentId: result.documentId,
+                    requirementId: req.id
+                  });
+                  throw new Error(`Failed to process requirement: ${errorText || response.statusText}`);
                 }
 
                 const data = await response.json();
+                console.log('Question API response:', data);
                 
                 // Extract matched content from the response
                 const matchedContent = data.matches?.map((match: any) => 
@@ -278,7 +298,6 @@ export class DocumentManager {
         }
       }
 
-      // Update progress for completion
       this.updateProgress(100, 'Upload complete', onProgress);
       return documents;
 
