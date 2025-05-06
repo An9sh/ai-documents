@@ -110,248 +110,80 @@ export class DocumentManager {
           onProgress
         );
 
+        console.log('Document process result 123:', result.success);
+
         // Wait for document to be fully processed with retries
-        let isDocumentAvailable = false;
-        let retryCount = 0;
-        const maxRetries = 10;
-        const retryDelay = 2000;
+        // let isDocumentAvailable = false;
+        // let retryCount = 0;
+        // const maxRetries = 10;
+        // const retryDelay = 2000;
 
-        while (!isDocumentAvailable && retryCount < maxRetries) {
-          try {
-            // Wait before checking
-            await new Promise(resolve => setTimeout(resolve, retryDelay));
+        // while (!isDocumentAvailable && retryCount < maxRetries) {
+        //   try {
+        //     // Wait before checking
+        //     await new Promise(resolve => setTimeout(resolve, retryDelay));
             
-            console.log(`Verification attempt ${retryCount + 1}/${maxRetries} for document:`, result.documentId);
+        //     console.log(`Verification attempt ${retryCount + 1}/${maxRetries} for document:`, result.documentId);
 
-             // Use window.location.origin for client-side requests, with VERCEL_URL as fallback
-            const baseUrl = typeof window !== 'undefined' 
-              ? window.location.origin 
-              : process.env.NEXT_PUBLIC_API_URL || 
-                (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
+        //      // Use window.location.origin for client-side requests, with VERCEL_URL as fallback
+        //     const baseUrl = typeof window !== 'undefined' 
+        //       ? window.location.origin 
+        //       : process.env.NEXT_PUBLIC_API_URL || 
+        //         (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
 
-            const verifyResponse = await fetch(`${baseUrl}/api/verify-document?documentId=${result.documentId}`, {
-              headers: {
-                'Authorization': `Bearer ${token}`
-              }
-            });
+        //     const verifyResponse = await fetch(`${baseUrl}/api/verify-document?documentId=${result.documentId}`, {
+        //       headers: {
+        //         'Authorization': `Bearer ${token}`
+        //       }
+        //     });
 
-            if (!verifyResponse.ok) {
-              console.error('Verification response not OK:', {
-                status: verifyResponse.status,
-                statusText: verifyResponse.statusText
-              });
-              throw new Error('Document verification failed');
-            }
+        //     if (!verifyResponse.ok) {
+        //       console.error('Verification response not OK:', {
+        //         status: verifyResponse.status,
+        //         statusText: verifyResponse.statusText
+        //       });
+        //       throw new Error('Document verification failed');
+        //     }
 
-            const verifyResult = await verifyResponse.json();
-            console.log('Verification result:', verifyResult);
+        //     const verifyResult = await verifyResponse.json();
+        //     console.log('Verification result:', verifyResult);
 
-            if (!verifyResult || typeof verifyResult.isAvailable !== 'boolean') {
-              console.error('Invalid verification result format:', verifyResult);
-              throw new Error('Invalid verification result format');
-            }
+        //     // if (!verifyResult || typeof verifyResult.isAvailable !== 'boolean') {
+        //     //   console.error('Invalid verification result format:', verifyResult);
+        //     //   throw new Error('Invalid verification result format');
+        //     // }
 
-            if (verifyResult.isAvailable) {
-              console.log('Document verified as available:', result.documentId);
-              isDocumentAvailable = true;
-              
-              // Get requirements for the user
-              const requirements = await getRequirements(userId);
-              console.log('User requirements:', requirements);
+        //     if (verifyResult.isAvailable) {
+        //       console.log('Document verified as available:', result.documentId);
+        //       isDocumentAvailable = true;
+        //       break;
+        //     }
 
-              // Process each requirement
-              const requirementClassifications = await Promise.all(
-                requirements.map(async (req) => {
-                  try {
-                    const question = RequirementsClassifier.buildQuestionForRequirement(req);
-                    console.log('Generated question:', question);
+        //     retryCount++;
+        //     if (retryCount < maxRetries) {
+        //       this.updateProgress(
+        //         Math.round(((i + 0.3 + (retryCount * 0.05)) / files.length) * 100),
+        //         `Waiting for document to be processed (attempt ${retryCount + 1}/${maxRetries})...`,
+        //         onProgress
+        //       );
+        //     }
+        //   } catch (error) {
+        //     console.error(`Document verification attempt ${retryCount + 1} failed:`, error);
+        //     retryCount++;
+        //     if (retryCount < maxRetries) {
+        //       await new Promise(resolve => setTimeout(resolve, retryDelay));
+        //     }
+        //   }
+        // }
 
-                    const documentInfo = await RequirementsClassifier.fetchDocumentInformation(
-                      question,
-                      [result.documentId],
-                      token,
-                      userId,
-                      req.id
-                    );
-                    console.log('Document info:', documentInfo);
-
-                    const match = documentInfo.matches[0];
-                    const vectorScore = match.score || 0;
-                    const aiScore = match.aiScore || 0;
-                    const finalScore = Math.round(vectorScore);
-                    const isMatch = finalScore >= req.matchThreshold && documentInfo.matchDetails?.match === true;
-                    
-                    const dbClassification = await createClassification({
-                      id: uuidv4(),
-                      documentId: result.dbDocument.id,
-                      requirementId: req.id,
-                      requirementText: req.description || req.name,
-                      requirementName: req.name,
-                      requirementDescription: req.description,
-                      userId,
-                      score: finalScore,
-                      confidence: finalScore > 80 ? 'high' : finalScore > 60 ? 'medium' : 'low',
-                      isPrimary: isMatch && finalScore >= req.matchThreshold,
-                      isSecondary: isMatch && finalScore >= req.matchThreshold * 0.8,
-                      isMatched: isMatch,
-                      documentName: file.name,
-                      matchDetails: match.content ? [match.content] : [],
-                      reason: documentInfo.matchDetails?.reason || "No match found",
-                      details: {
-                        requirements: {
-                          matched: match.content ? [match.content] : [],
-                          missing: []
-                        },
-                        metadata: {
-                          documentId: result.dbDocument.id,
-                          filename: file.name,
-                          lines: { from: 0, to: 0 },
-                          userId,
-                          matchedAt: new Date().toISOString(),
-                          confidence: finalScore > 80 ? 'high' : finalScore > 60 ? 'medium' : 'low',
-                          matchedRequirements: match.content ? [match.content] : [],
-                          rawMatchReason: documentInfo.matchDetails?.reason || "No match found",
-                          threshold: req.matchThreshold,
-                          isMatched: documentInfo.matchDetails?.match === true,
-                          documentInfo: {
-                            type: 'document',
-                            size: file.size
-                          },
-                          requirementName: req.name,
-                          requirementDescription: req.description || ''
-                        },
-                        scores: {
-                          vector: vectorScore,
-                          ai: aiScore,
-                          final: finalScore
-                        },
-                        matchDetails: match.content ? [match.content] : []
-                      },
-                      updatedAt: new Date()
-                    });
-
-                    // Convert the database classification to the expected Classification type
-                    const classification: Classification = {
-                      ...dbClassification,
-                      documentId: dbClassification.documentId || result.dbDocument.id,
-                      requirementId: dbClassification.requirementId || req.id,
-                      userId: dbClassification.userId || userId,
-                      requirementText: req.description || req.name,
-                      requirementName: req.name,
-                      requirementDescription: req.description,
-                      updatedAt: dbClassification.updatedAt || new Date(),
-                      documentName: file.name,
-                      matchDetails: match.content ? [match.content] : [],
-                      confidence: finalScore > 80 ? 'high' : finalScore > 60 ? 'medium' : 'low',
-                      reason: documentInfo.matchDetails?.reason || "No match found",
-                      details: {
-                        requirements: {
-                          matched: match.content ? [match.content] : [],
-                          missing: []
-                        },
-                        metadata: {
-                          documentId: result.dbDocument.id,
-                          filename: file.name,
-                          lines: { from: 0, to: 0 },
-                          userId,
-                          matchedAt: new Date().toISOString(),
-                          confidence: finalScore > 80 ? 'high' : finalScore > 60 ? 'medium' : 'low',
-                          matchedRequirements: match.content ? [match.content] : [],
-                          rawMatchReason: documentInfo.matchDetails?.reason || "No match found",
-                          threshold: req.matchThreshold,
-                          isMatched: documentInfo.matchDetails?.match === true,
-                          documentInfo: {
-                            type: 'document',
-                            size: file.size
-                          },
-                          requirementName: req.name,
-                          requirementDescription: req.description || ''
-                        },
-                        scores: {
-                          vector: vectorScore,
-                          ai: aiScore,
-                          final: finalScore
-                        },
-                        matchDetails: match.content ? [match.content] : []
-                      }
-                    };
-
-                    if (documentInfo.matchDetails?.match === true) {
-                      const matchData = {
-                        documentId: result.dbDocument.id,
-                        classificationId: classification.id,
-                        matchPercentage: Math.round(vectorScore * 100),
-                        confidence: finalScore > 80 ? 3 : finalScore > 60 ? 2 : 1,
-                        matchedRequirements: match.content ? [match.content] : [],
-                        rawMatchReason: documentInfo.matchDetails?.reason || "No match found",
-                        isMatched: documentInfo.matchDetails?.match === true
-                      };
-                      await createDocumentMatch(matchData);
-                    }
-
-                    return classification;
-                  } catch (error) {
-                    console.error('Error processing requirement:', error);
-                    return null;
-                    // return {
-                    //   requirementId: req.id,
-                    //   requirementText: req.description || req.name,
-                    //   score: documentInfo.matchDetails?.finalScore || 0,
-                    //   isMatched: documentInfo.matchDetails?.match || false,
-                    //   reason: documentInfo.matchDetails?.reason || 'No reason provided',
-                    //   details: {
-                    //     scores: {
-                    //       vector: documentInfo.matchDetails?.vectorScore || 0,
-                    //       ai: documentInfo.matchDetails?.aiScore || 0
-                    //     },
-                    //     matchDetails: documentInfo.matches?.map((match: { metadata?: { pageContent?: string } }) => match.metadata?.pageContent).filter(Boolean) || []
-                    //   }
-                    // }
-                 
-                  }
-                })
-              );
-
-              // Filter out null classifications and add to document
-              const validClassifications = requirementClassifications.filter(Boolean);
-              console.log('Valid classifications:', validClassifications);
-
-              documents.push({
-                ...document,
-                classifications: validClassifications
-              });
-
-              break;
-            }
-
-            retryCount++;
-            if (retryCount < maxRetries) {
-              this.updateProgress(
-                Math.round(((i + 0.3 + (retryCount * 0.05)) / files.length) * 100),
-                `Waiting for document to be processed (attempt ${retryCount + 1}/${maxRetries})...`,
-                onProgress
-              );
-            }
-          } catch (error) {
-            console.error(`Document verification attempt ${retryCount + 1} failed:`, error);
-            retryCount++;
-            if (retryCount < maxRetries) {
-              await new Promise(resolve => setTimeout(resolve, retryDelay));
-            }
-          }
-        }
-
-        if (!isDocumentAvailable) {
-          console.error('Document verification failed after all retries:', {
-            documentId: result.documentId,
-            attempts: retryCount,
-            maxRetries
-          });
-          throw new Error('Document processing is taking longer than expected. Please try again in a few moments.');
-        }
-
-        // Add a small delay after verification to ensure document is fully processed
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // if (!isDocumentAvailable) {
+        //   console.error('Document verification failed after all retries:', {
+        //     documentId: result.documentId,
+        //     attempts: retryCount,
+        //     maxRetries
+        //   });
+        //   throw new Error('Document processing is taking longer than expected. Please try again in a few moments.');
+        // }
 
         // Update progress for requirements processing
         this.updateProgress(
@@ -359,6 +191,175 @@ export class DocumentManager {
           `Processing requirements for ${file.name}...`,
           onProgress
         );
+
+
+        // Get requirements for the user
+        const requirements = await getRequirements(userId);
+        console.log('User requirements:', requirements);
+
+        // Process each requirement
+        const requirementClassifications = await Promise.all(
+          requirements.map(async (req) => {
+            try {
+              const question = RequirementsClassifier.buildQuestionForRequirement(req);
+              console.log('Generated question:', question);
+
+              const documentInfo = await RequirementsClassifier.fetchDocumentInformation(
+                question,
+                [result.documentId],
+                token,
+                userId,
+                req.id
+              );
+              console.log('Document info:', documentInfo);
+          try {
+            const match = documentInfo.matches[0];
+            const vectorScore = match.score || 0;
+            const aiScore = match.aiScore || 0;
+            const finalScore = Math.round(vectorScore);
+            const isMatch = finalScore >= req.matchThreshold && documentInfo.matchDetails?.match === true;
+            
+            const dbClassification = await createClassification({
+              id: uuidv4(),
+              documentId: result.dbDocument.id,
+              requirementId: req.id,
+              requirementText: req.description || req.name,
+              requirementName: req.name,
+              requirementDescription: req.description,
+              userId,
+              score: finalScore,
+              confidence: finalScore > 80 ? 'high' : finalScore > 60 ? 'medium' : 'low',
+              isPrimary: isMatch && finalScore >= req.matchThreshold,
+              isSecondary: isMatch && finalScore >= req.matchThreshold * 0.8,
+              isMatched: isMatch,
+              documentName: file.name,
+              matchDetails: match.content ? [match.content] : [],
+              reason: documentInfo.matchDetails?.reason || "No match found",
+              details: {
+                requirements: {
+                  matched: match.content ? [match.content] : [],
+                  missing: []
+                },
+                metadata: {
+                  documentId: result.dbDocument.id,
+                  filename: file.name,
+                  lines: { from: 0, to: 0 },
+                  userId,
+                  matchedAt: new Date().toISOString(),
+                  confidence: finalScore > 80 ? 'high' : finalScore > 60 ? 'medium' : 'low',
+                  matchedRequirements: match.content ? [match.content] : [],
+                  rawMatchReason: documentInfo.matchDetails?.reason || "No match found",
+                  threshold: req.matchThreshold,
+                  isMatched: documentInfo.matchDetails?.match === true,
+                  documentInfo: {
+                    type: 'document',
+                    size: file.size
+                  },
+                  requirementName: req.name,
+                  requirementDescription: req.description || ''
+                },
+                scores: {
+                  vector: vectorScore,
+                  ai: aiScore,
+                  final: finalScore
+                },
+                matchDetails: match.content ? [match.content] : []
+              },
+              updatedAt: new Date()
+            });
+
+            // Convert the database classification to the expected Classification type
+            const classification: Classification = {
+              ...dbClassification,
+              documentId: dbClassification.documentId || result.dbDocument.id,
+              requirementId: dbClassification.requirementId || req.id,
+              userId: dbClassification.userId || userId,
+              requirementText: req.description || req.name,
+              requirementName: req.name,
+              requirementDescription: req.description,
+              updatedAt: dbClassification.updatedAt || new Date(),
+              documentName: file.name,
+              matchDetails: match.content ? [match.content] : [],
+              confidence: finalScore > 80 ? 'high' : finalScore > 60 ? 'medium' : 'low',
+              reason: documentInfo.matchDetails?.reason || "No match found",
+              details: {
+                requirements: {
+                  matched: match.content ? [match.content] : [],
+                  missing: []
+                },
+                metadata: {
+                  documentId: result.dbDocument.id,
+                  filename: file.name,
+                  lines: { from: 0, to: 0 },
+                  userId,
+                  matchedAt: new Date().toISOString(),
+                  confidence: finalScore > 80 ? 'high' : finalScore > 60 ? 'medium' : 'low',
+                  matchedRequirements: match.content ? [match.content] : [],
+                  rawMatchReason: documentInfo.matchDetails?.reason || "No match found",
+                  threshold: req.matchThreshold,
+                  isMatched: documentInfo.matchDetails?.match === true,
+                  documentInfo: {
+                    type: 'document',
+                    size: file.size
+                  },
+                  requirementName: req.name,
+                  requirementDescription: req.description || ''
+                },
+                scores: {
+                  vector: vectorScore,
+                  ai: aiScore,
+                  final: finalScore
+                },
+                matchDetails: match.content ? [match.content] : []
+              }
+            };
+
+            if (documentInfo.matchDetails?.match === true) {
+              const matchData = {
+                documentId: result.dbDocument.id,
+                classificationId: classification.id,
+                matchPercentage: Math.round(vectorScore * 100),
+                confidence: finalScore > 80 ? 3 : finalScore > 60 ? 2 : 1,
+                matchedRequirements: match.content ? [match.content] : [],
+                rawMatchReason: documentInfo.matchDetails?.reason || "No match found",
+                isMatched: documentInfo.matchDetails?.match === true
+              };
+              await createDocumentMatch(matchData);
+            }
+
+            return classification;
+          } catch (error) {
+            console.error('Error processing classification:', error);
+          
+              return {
+                requirementId: req.id,
+                requirementText: req.description || req.name,
+                score: documentInfo.matchDetails?.finalScore || 0,
+                isMatched: documentInfo.matchDetails?.match || false,
+                reason: documentInfo.matchDetails?.reason || 'No reason provided',
+                details: {
+                  scores: {
+                    vector: documentInfo.matchDetails?.vectorScore || 0,
+                    ai: documentInfo.matchDetails?.aiScore || 0
+                  },
+                  matchDetails: documentInfo.matches?.map((match: { metadata?: { pageContent?: string } }) => match.metadata?.pageContent).filter(Boolean) || []
+                }
+              }};
+            } catch (error) {
+              console.error('Error processing requirement:', error);
+              return null;
+            }
+          })
+        );
+
+        // Filter out null classifications and add to document
+        const validClassifications = requirementClassifications.filter(Boolean);
+        console.log('Valid classifications:', validClassifications);
+
+        documents.push({
+          ...document,
+          classifications: validClassifications
+        });
       }
 
       // Update progress for completion
