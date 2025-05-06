@@ -33,7 +33,7 @@ export async function POST(request: Request) {
     }
 
     const userId = decodedToken.uid;
-    const user = await ensureUserExists(userId, decodedToken.email || '', decodedToken.name || '');
+    await ensureUserExists(userId, decodedToken.email || '', decodedToken.name || '');
 
     // Create initial progress record
     await createProgress(uploadId, userId);
@@ -65,71 +65,39 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Pinecone index name not configured" }, { status: 500 });
     }
 
+    sendProgressUpdate(uploadId, { 
+      status: 'processing',
+      message: 'Processing PDF document...',
+      progress: 20
+    });
 
     const documentId = uuidv4();
 
     try {
       const result = await DocumentProcessor.processDocument(file, userId, documentId);
-
-      // Get the base URL for the API
-      let baseUrl = process.env.NEXT_PUBLIC_API_URL;
-      if (!baseUrl) {
-        if (process.env.VERCEL_URL) {
-          baseUrl = `https://${process.env.VERCEL_URL}`;
-        } else {
-          baseUrl = 'http://localhost:3000';
-        }
-      }
-
-      // Ensure the URL has a protocol
-      if (!baseUrl.startsWith('http://') && !baseUrl.startsWith('https://')) {
-        baseUrl = `https://${baseUrl}`;
-      }
-
-      // Trigger classification and await response
-      const classificationResponse = await fetch(`${baseUrl}/api/trigger-classification`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          documentId,
-          fileName: file.name,
-          userId,
-          result: result
-        })
+      console.log('Document processing result:', result);
+      sendProgressUpdate(uploadId, { 
+        status: 'completed',
+        message: 'Document processing completed successfully',
+        progress: 100
       });
-
-      if (!classificationResponse.ok) {
-        const errorData = await classificationResponse.json().catch(() => null);
-        console.error('Classification failed:', {
-          status: classificationResponse.status,
-          statusText: classificationResponse.statusText,
-          error: errorData
-        });
-        throw new Error(`Classification failed: ${errorData?.error || classificationResponse.statusText}`);
-      }
-
-      const classificationResult = await classificationResponse.json();
-      console.log('Classification result:', classificationResult);
-
-      if (!classificationResult.success) {
-        console.error('Classification returned error:', classificationResult);
-        throw new Error(classificationResult.error || 'Classification failed');
-      }
 
       return NextResponse.json({ 
         success: true,
         documentId: result.documentId,
         chunks: result.chunks,
         dbDocument: result.dbDocument,
-        classifications: classificationResult.classifications || [],
-        message: 'Document processed and classified successfully',
+        message: 'Document processed successfully',
         uploadId
       });
     } catch (error) {
       console.error('Error in document processing:', error);
+      
+      sendProgressUpdate(uploadId, { 
+        status: 'error',
+        message: error instanceof Error ? error.message : 'Failed to process document',
+        progress: 0
+      });
 
       return NextResponse.json(
         { 
@@ -143,6 +111,11 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error('Error in process-document route:', error);
     
+    sendProgressUpdate(uploadId, { 
+      status: 'error',
+      message: error instanceof Error ? error.message : 'Failed to process document',
+      progress: 0
+    });
 
     return NextResponse.json(
       { 
