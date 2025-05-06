@@ -123,16 +123,11 @@ export class DocumentManager {
             
             console.log(`Verification attempt ${retryCount + 1}/${maxRetries} for document:`, result.documentId);
 
-             // Get the base URL for the API
-            let baseUrl = process.env.NEXT_PUBLIC_API_URL;
-            
-            if (!baseUrl) {
-              if (process.env.VERCEL_URL) {
-                baseUrl = `https://${process.env.VERCEL_URL}`;
-              } else {
-                baseUrl = 'http://localhost:3000';
-              }
-            }
+             // Use window.location.origin for client-side requests, with VERCEL_URL as fallback
+            const baseUrl = typeof window !== 'undefined' 
+              ? window.location.origin 
+              : process.env.NEXT_PUBLIC_API_URL || 
+                (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
 
             const verifyResponse = await fetch(`${baseUrl}/api/verify-document?documentId=${result.documentId}`, {
               headers: {
