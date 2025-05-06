@@ -26,6 +26,7 @@ interface MatchResult {
   requirement?: string;
   requirementName?: string;
   requirementDescription?: string;
+  requirementText?: string;
 }
 
 export function UploadSection({ onUploadComplete }: UploadSectionProps) {
@@ -95,7 +96,8 @@ export function UploadSection({ onUploadComplete }: UploadSectionProps) {
                 requirement: classification.requirementText || classification.requirement || classification.name || 'Unnamed Requirement',
                 requirementName: classification.requirementName || classification.name || 'Unnamed Requirement',
                 requirementDescription: classification.requirementDescription || classification.description || '',
-                matchedContent: classification.matchDetails || classification.matchedContent || []
+                matchedContent: classification.matchDetails || classification.matchedContent || [],
+                requirementText: classification.requirementText || classification.requirement || classification.name || 'Unnamed Requirement'
               };
             });
           }
@@ -114,7 +116,8 @@ export function UploadSection({ onUploadComplete }: UploadSectionProps) {
             requirement: doc.name || doc.requirement || 'Unnamed Requirement',
             requirementName: doc.name || 'Unnamed Requirement',
             requirementDescription: doc.description || '',
-            matchedContent: []
+            matchedContent: [],
+            requirementText: doc.name || doc.requirement || 'Unnamed Requirement'
           };
         }).flat() // Flatten the array of arrays
       };
@@ -209,11 +212,11 @@ export function UploadSection({ onUploadComplete }: UploadSectionProps) {
                             <div className="flex flex-wrap items-center gap-2 mb-2">
                               <div className="flex flex-col">
                                 <span className="text-sm font-medium text-gray-900">
-                                  {match.requirementName || 'Unnamed Requirement'}
+                                  {match.requirementName || match.requirementText || 'Requirement ' + (index + 1)}
                                 </span>
-                                {match.requirementDescription && (
+                                {match.requirementDescription && match.requirementDescription.trim() !== '' && (
                                   <span className="text-xs text-gray-500">
-                                    {match.requirementDescription}
+                                    {match.requirementText}
                                   </span>
                                 )}
                               </div>
@@ -235,7 +238,7 @@ export function UploadSection({ onUploadComplete }: UploadSectionProps) {
                                 }}
                                 className="flex items-center text-sm font-medium text-gray-900 hover:text-indigo-600"
                               >
-                                <span>Match Reason</span>
+                                <span>Match Details</span>
                                 <ChevronDownIcon
                                   className={`h-4 w-4 ml-1 transition-transform ${
                                     expandedReasons[index] ? 'transform rotate-180' : ''
@@ -243,30 +246,38 @@ export function UploadSection({ onUploadComplete }: UploadSectionProps) {
                                 />
                               </button>
                               {expandedReasons[index] && (
-                                <p className="text-sm text-gray-600 mt-1">{match.reason}</p>
+                                <div className="mt-2 space-y-2">
+                                  <div className="text-sm text-gray-600">
+                                    
+                                    <p>{match.reason}</p>
+                                    {match.score !== undefined && (
+                                      <p className="mt-1">Score: {match.score}%</p>
+                                    )}
+                                  </div>
+                                  
+                                  {match.matchedContent && match.matchedContent.length > 0 && (
+                                    <div className="mt-2">
+                                      <p className="text-sm font-medium text-gray-900">Matched Content:</p>
+                                      <ul className="mt-1 space-y-1">
+                                        {match.matchedContent.map((content, idx) => (
+                                          <li key={idx} className="text-sm text-gray-600 pl-4 border-l-2 border-gray-200">
+                                            {content}
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  )}
+
+                                  {match.isMatched && (!match.matchedContent || match.matchedContent.length === 0) && (
+                                    <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded">
+                                      <p className="text-sm text-yellow-800">
+                                        ⚠️ This match is based on score threshold only. Please verify the document content.
+                                      </p>
+                                    </div>
+                                  )}
+                                </div>
                               )}
                             </div>
-
-                            {match.matchedContent && match.matchedContent.length > 0 && (
-                              <div className="mt-2">
-                                <p className="text-sm font-medium text-gray-900">Matched Content:</p>
-                                <ul className="mt-1 space-y-1">
-                                  {match.matchedContent.map((content, idx) => (
-                                    <li key={idx} className="text-sm text-gray-600 pl-4 border-l-2 border-gray-200">
-                                      {content}
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
-
-                            {(!match.matchedContent || match.matchedContent.length === 0) && match.isMatched && (
-                              <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded">
-                                <p className="text-sm text-yellow-800">
-                                  ⚠️ Please verify the document to ensure it matches the requirement.
-                                </p>
-                              </div>
-                            )}
                           </div>
                         </div>
                       </div>

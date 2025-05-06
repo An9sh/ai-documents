@@ -56,6 +56,7 @@ export class RequirementMatcher {
           documentName: filename,
           matchDetails: match.content ? [match.content] : [],
           reason: documentInfo.matchDetails?.reason || "No match found",
+          matchedContent: match.content ? [match.content] : null,
           details: {
             requirements: {
               matched: match.content ? [match.content] : [],
@@ -102,6 +103,7 @@ export class RequirementMatcher {
           documentName: filename,
           matchDetails: match.content ? [match.content] : [],
           reason: documentInfo.matchDetails?.reason || "No match found",
+          matchedContent: match.content ? [match.content] : null,
           details: {
             requirements: {
               matched: match.content ? [match.content] : [],

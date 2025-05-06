@@ -65,10 +65,6 @@ static async fetchDocumentInformation(question: string, documentIds: string[], t
         requirements: requirements
       }
     };
-
-    console.log('Request body:', requestBody);
-    // console.log('Using auth token:', authToken.substring(0, 20) + '...');
-    console.log('This is a token inisde the requirements route:', token);
     const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {

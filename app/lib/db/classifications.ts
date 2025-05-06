@@ -33,6 +33,7 @@ export async function getClassifications(documentId: string): Promise<Classifica
     isSecondary: cls.isSecondary,
     isMatched: cls.isMatched,
     reason: (cls.details as any)?.metadata?.rawMatchReason ?? '',
+    matchedContent: (cls.details as any)?.metadata?.matchedContent ?? null,
     details: {
       requirements: {
         matched: Array.isArray((cls.details as any)?.requirements?.matched) ? (cls.details as any).requirements.matched : [],
@@ -157,6 +158,7 @@ export async function updateClassification(
     isSecondary: updatedClassification.isSecondary,
     isMatched: updatedClassification.isMatched,
     reason: (updatedClassification.details as any)?.metadata?.rawMatchReason ?? '',
+    matchedContent: (updatedClassification.details as any)?.metadata?.matchedContent ?? null,
     details: {
       requirements: {
         matched: Array.isArray((updatedClassification.details as any)?.requirements?.matched) ? (updatedClassification.details as any).requirements.matched : [],
@@ -231,6 +233,7 @@ export async function getUserClassifications(userId: string): Promise<Classifica
     isSecondary: cls.isSecondary,
     isMatched: cls.isMatched,
     reason: (cls.details as any)?.metadata?.rawMatchReason ?? '',
+    matchedContent: (cls.details as any)?.metadata?.matchedContent ?? null,
     details: {
       requirements: {
         matched: Array.isArray((cls.details as any)?.requirements?.matched) ? (cls.details as any).requirements.matched : [],

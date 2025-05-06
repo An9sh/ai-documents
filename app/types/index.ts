@@ -55,6 +55,8 @@ export interface ClassificationDetails {
     rawMatchReason: string;
     threshold: number;
     isMatched: boolean;
+    reason: string;
+    matchedContent: string[] | null;
     documentInfo: {
       type: string;
       size: number;
@@ -86,6 +88,7 @@ export interface Classification {
   documentName: string;
   matchDetails: string[];
   reason: string;
+  matchedContent: string[] | null;
   details: {
     requirements: {
       matched: string[];
