@@ -136,7 +136,7 @@ export class DocumentManager {
             }
 
             console.log('Using base URL for verification:', baseUrl);
-            const verifyUrl = `${baseUrl}/api/verify-document?documentId=${result.documentId}`;
+            const verifyUrl = `/api/verify-document?documentId=${result.documentId}`;
             console.log('Verification URL:', verifyUrl);
 
             const verifyResponse = await fetch(verifyUrl, {
