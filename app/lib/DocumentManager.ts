@@ -9,7 +9,9 @@ export class DocumentManager {
   private getBaseUrl(): string {
     // In Vercel, we should use the Vercel URL
     if (process.env.VERCEL_URL) {
-      return `https://${process.env.VERCEL_URL}`;
+      // Check if we're in a secure context
+      const isSecure = typeof window !== 'undefined' ? window.location.protocol === 'https:' : true;
+      return `${isSecure ? 'https' : 'http'}://${process.env.VERCEL_URL}`;
     }
     // For local development
     return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
