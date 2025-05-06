@@ -122,9 +122,19 @@ export class DocumentManager {
             await new Promise(resolve => setTimeout(resolve, retryDelay));
             
             console.log(`Verification attempt ${retryCount + 1}/${maxRetries} for document:`, result.documentId);
+
+             // Get the base URL for the API
+            let baseUrl = process.env.NEXT_PUBLIC_API_URL;
             
-            const vercelUrl = process.env.NEXT_PUBLIC_VERCEL_URL || 'http://localhost:3000';
-            const verifyResponse = await fetch(`${vercelUrl}/api/verify-document?documentId=${result.documentId}`, {
+            if (!baseUrl) {
+              if (process.env.VERCEL_URL) {
+                baseUrl = `https://${process.env.VERCEL_URL}`;
+              } else {
+                baseUrl = 'http://localhost:3000';
+              }
+            }
+
+            const verifyResponse = await fetch(`${baseUrl}/api/verify-document?documentId=${result.documentId}`, {
               headers: {
                 'Authorization': `Bearer ${token}`
               }
