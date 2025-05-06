@@ -121,40 +121,46 @@ export class DocumentManager {
             console.log(`Verification attempt ${retryCount + 1}/${maxRetries} for document:`, result.documentId);
             
             // Get the base URL for the API
-            let baseUrl = process.env.NEXT_PUBLIC_API_URL;
+            let baseUrl = '';
             
-            if (!baseUrl) {
-              if (typeof window !== 'undefined') {
-                // Client-side: use the current origin
-                baseUrl = window.location.origin;
-              } else if (process.env.VERCEL_URL) {
-                // Server-side: use Vercel URL
-                baseUrl = `https://${process.env.VERCEL_URL}`;
-              } else {
-                baseUrl = 'http://localhost:3000';
-              }
+            if (typeof window !== 'undefined') {
+              // Client-side: use the current origin
+              baseUrl = window.location.origin;
+            } else if (process.env.VERCEL_URL) {
+              // Server-side: use Vercel URL
+              baseUrl = `https://${process.env.VERCEL_URL}`;
+            } else {
+              baseUrl = 'http://localhost:3000';
             }
 
+            // Ensure baseUrl doesn't end with a slash
+            baseUrl = baseUrl.replace(/\/$/, '');
+            
             console.log('Using base URL for verification:', baseUrl);
             const verifyUrl = `${baseUrl}/api/verify-document?documentId=${result.documentId}`;
             console.log('Verification URL:', verifyUrl);
 
             const verifyResponse = await fetch(verifyUrl, {
+              method: 'GET',
               headers: {
-                'Authorization': `Bearer ${token}`
-              }
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              },
+              cache: 'no-store'
             });
 
             if (!verifyResponse.ok) {
+              const errorText = await verifyResponse.text();
               console.error('Verification response not OK:', {
                 status: verifyResponse.status,
                 statusText: verifyResponse.statusText,
+                error: errorText,
                 url: verifyUrl,
                 baseUrl,
                 environment: process.env.NODE_ENV,
                 vercelUrl: process.env.VERCEL_URL
               });
-              throw new Error('Document verification failed');
+              throw new Error(`Document verification failed: ${errorText}`);
             }
 
             const verifyResult = await verifyResponse.json();
@@ -165,21 +171,22 @@ export class DocumentManager {
               isDocumentAvailable = true;
               break;
             }
-
-            retryCount++;
-            if (retryCount < maxRetries) {
-              this.updateProgress(
-                Math.round(((i + 0.3 + (retryCount * 0.05)) / files.length) * 100),
-                `Waiting for document to be processed (attempt ${retryCount + 1}/${maxRetries})...`,
-                onProgress
-              );
-            }
           } catch (error) {
             console.error(`Document verification attempt ${retryCount + 1} failed:`, error);
             retryCount++;
             if (retryCount < maxRetries) {
               await new Promise(resolve => setTimeout(resolve, retryDelay));
             }
+            continue;
+          }
+
+          retryCount++;
+          if (retryCount < maxRetries) {
+            this.updateProgress(
+              Math.round(((i + 0.3 + (retryCount * 0.05)) / files.length) * 100),
+              `Waiting for document to be processed (attempt ${retryCount + 1}/${maxRetries})...`,
+              onProgress
+            );
           }
         }
 
@@ -202,10 +209,14 @@ export class DocumentManager {
           onProgress
         );
 
+
+        if(isDocumentAvailable){
+
+       
         // Get requirements for the user
         const requirements = await getRequirements(userId);
         console.log('User requirements:', requirements);
-
+        
         // Process each requirement
         const requirementClassifications = await Promise.all(
           requirements.map(async (req) => {
@@ -221,6 +232,7 @@ export class DocumentManager {
                 req.id
               );
               console.log('Document info:', documentInfo);
+              
           try {
             const match = documentInfo.matches[0];
             const vectorScore = match.score || 0;
@@ -337,6 +349,7 @@ export class DocumentManager {
             }
 
             return classification;
+          
           } catch (error) {
             console.error('Error processing classification:', error);
           
@@ -360,7 +373,7 @@ export class DocumentManager {
             }
           })
         );
-
+      
         // Filter out null classifications and add to document
         const validClassifications = requirementClassifications.filter(Boolean);
         console.log('Valid classifications:', validClassifications);
@@ -370,6 +383,7 @@ export class DocumentManager {
           classifications: validClassifications
         });
       }
+    }
 
       // Update progress for completion
       this.updateProgress(100, 'Upload complete', onProgress);
