@@ -15,9 +15,10 @@ export class SyncService {
     try {
       // Get all documents for the user
       const docs = await getDocuments(userId);
-      const documentIds = docs.map(doc => doc.pineconeId).filter((id): id is string => id !== undefined);
-
-      if (!documentIds.length) {
+      // Filter out documents without pineconeId
+      const validDocs = docs.filter(doc => doc.pineconeId);
+      
+      if (!validDocs.length) {
         return { message: 'No documents found to sync' };
       }
 
@@ -29,7 +30,7 @@ export class SyncService {
         question,
         requirement.name,
         userId,
-        documentIds
+        validDocs.map(doc => doc.pineconeId!)
       );
 
       if (!searchResults.results || searchResults.results.length === 0) {
@@ -38,7 +39,7 @@ export class SyncService {
 
       // Filter out documents that don't exist in our database
       const validDocuments = searchResults.results.filter(doc => 
-        docs.some(dbDoc => dbDoc.pineconeId === doc.documentId)
+        validDocs.some(dbDoc => dbDoc.pineconeId === doc.documentId)
       );
 
       if (validDocuments.length === 0) {
@@ -46,58 +47,75 @@ export class SyncService {
       }
 
       // Prepare classifications data
-      const classificationsData = validDocuments.map(doc => {
-        const vectorScore = doc.vectorScore || 0;
-        const finalScore = vectorScore; // Using vector score as final score
-        const isMatched = doc.isMatch === true && finalScore >= requirement.matchThreshold;
-        const isPrimary = isMatched && finalScore >= requirement.matchThreshold;
-        const isSecondary = isMatched && finalScore >= requirement.matchThreshold * 0.8;
-        const confidence = finalScore > 80 ? 3 : finalScore > 60 ? 2 : 1;
+      const classificationsData = validDocuments
+        .filter(doc => {
+          const vectorScore = doc.vectorScore || 0;
+          const finalScore = vectorScore;
+          return doc.isMatch === true && finalScore >= requirement.matchThreshold;
+        })
+        .map(doc => {
+          const vectorScore = doc.vectorScore || 0;
+          const finalScore = vectorScore;
+          const isMatched = true; // We know it's matched because of the filter above
+          const isPrimary = finalScore >= requirement.matchThreshold;
+          const isSecondary = finalScore >= requirement.matchThreshold * 0.8;
+          const confidence = finalScore > 80 ? 3 : finalScore > 60 ? 2 : 1;
 
-        const dbDoc = docs.find(dbDoc => dbDoc.pineconeId === doc.documentId);
-        const score = Math.round(Math.max(0, Math.min(100, finalScore)));
-        const matchReason = doc.matchDetails?.[0]?.reason || "No match reason provided";
+          const dbDoc = validDocs.find(dbDoc => dbDoc.pineconeId === doc.documentId);
+          const score = Math.round(Math.max(0, Math.min(100, finalScore)));
+          const matchReason = doc.matchDetails?.[0]?.reason || "No match reason provided";
 
-        const details = {
-          requirements: {
-            matched: doc.matchDetails?.map(detail => detail.requirement) || [],
-            missing: []
-          },
-          metadata: {
-            documentId: dbDoc?.id || doc.documentId,
-            filename: doc.filename,
-            lines: { from: 0, to: 0 },
-            userId,
-            matchedAt: new Date().toISOString(),
-            confidence: finalScore > 80 ? 'high' : finalScore > 60 ? 'medium' : 'low',
-            matchedRequirements: doc.matchDetails?.map(detail => detail.requirement) || [],
-            rawMatchReason: matchReason,
-            threshold: requirement.matchThreshold,
-            isMatched,
-            documentInfo: {
-              type: 'document',
-              size: 0
+          const details = {
+            requirements: {
+              matched: doc.matchDetails?.map(detail => detail.requirement) || [],
+              missing: []
+            },
+            metadata: {
+              documentId: dbDoc?.id || doc.documentId,
+              filename: doc.filename,
+              lines: { from: 0, to: 0 },
+              userId,
+              matchedAt: new Date().toISOString(),
+              confidence: finalScore > 80 ? 'high' : finalScore > 60 ? 'medium' : 'low',
+              matchedRequirements: doc.matchDetails?.map(detail => detail.requirement) || [],
+              rawMatchReason: matchReason,
+              threshold: requirement.matchThreshold,
+              isMatched,
+              documentInfo: {
+                type: 'document',
+                size: 0
+              }
+            },
+            scores: {
+              vector: vectorScore,
+              final: finalScore
             }
-          },
-          scores: {
-            vector: vectorScore,
-            final: finalScore
+          };
+
+          return {
+            id: uuidv4(),
+            documentId: dbDoc?.id || doc.documentId,
+            requirementId: requirement.id,
+            userId,
+            score,
+            confidence,
+            isPrimary,
+            isSecondary,
+            isMatched,
+            details: JSON.stringify(details)
+          };
+        });
+
+      // Only proceed if we have matched documents
+      if (classificationsData.length === 0) {
+        return { 
+          success: true,
+          message: 'No matching documents found',
+          classifications: {
+            [requirement.id]: []
           }
         };
-
-        return {
-          id: uuidv4(),
-          documentId: dbDoc?.id || doc.documentId,
-          requirementId: requirement.id,
-          userId,
-          score,
-          confidence,
-          isPrimary,
-          isSecondary,
-          isMatched,
-          details: JSON.stringify(details)
-        };
-      });
+      }
 
       // Get existing classifications
       const existingClassifications = await db
@@ -125,28 +143,26 @@ export class SyncService {
         .returning();
 
       // Create document matches
-      const documentMatchesData = newClassifications
-        .filter(cls => cls.isMatched)
-        .map(cls => {
-          const details = typeof cls.details === 'string' 
-            ? JSON.parse(cls.details)
-            : cls.details;
-          
-          return {
-            id: uuidv4(),
-            documentId: cls.documentId,
-            classificationId: cls.id,
-            requirementId: cls.requirementId,
-            userId: cls.userId,
-            matchPercentage: cls.score,
-            matchedAt: new Date(),
-            isMatched: true,
-            confidence: cls.confidence,
-            matchReason: details.metadata?.rawMatchReason || "No reason provided",
-            matchedRequirements: details.metadata?.matchedRequirements || [],
-            rawMatchReason: details.metadata?.rawMatchReason || "No reason provided"
-          };
-        });
+      const documentMatchesData = newClassifications.map(cls => {
+        const details = typeof cls.details === 'string' 
+          ? JSON.parse(cls.details)
+          : cls.details;
+        
+        return {
+          id: uuidv4(),
+          documentId: cls.documentId,
+          classificationId: cls.id,
+          requirementId: cls.requirementId,
+          userId: cls.userId,
+          matchPercentage: cls.score,
+          matchedAt: new Date(),
+          isMatched: true,
+          confidence: cls.confidence,
+          matchReason: details.metadata?.rawMatchReason || "No reason provided",
+          matchedRequirements: details.metadata?.matchedRequirements || [],
+          rawMatchReason: details.metadata?.rawMatchReason || "No reason provided"
+        };
+      });
 
       if (documentMatchesData.length > 0) {
         await db

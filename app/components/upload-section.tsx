@@ -3,11 +3,10 @@
 import { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { DocumentMetadata } from '../types';
-import { DocumentManager } from '../lib/DocumentManager';
-import { BackgroundJob } from '../lib/services/background-job';
 import { Dialog } from '@headlessui/react';
 import { CheckCircleIcon, XCircleIcon, ChevronDownIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '../contexts/auth-context';
+import { DocumentManager } from '../lib/DocumentManager';
 
 interface UploadSectionProps {
   onUploadComplete: (documents: DocumentMetadata[]) => void;
@@ -25,22 +24,9 @@ interface MatchResult {
   aiScore: number;
   matchedContent?: string[];
   requirement?: string;
+  requirementName?: string;
+  requirementDescription?: string;
 }
-
-// interface Classification {
-//   requirementId?: string;
-//   score?: {
-//     final?: number;
-//     vector?: number;
-//     ai?: number;
-//     threshold?: number;
-//   };
-//   confidence?: string;
-//   match?: boolean;
-//   reason?: string;
-//   requirement?: string;
-//   matchedContent?: string[];
-// }
 
 export function UploadSection({ onUploadComplete }: UploadSectionProps) {
   const [error, setError] = useState<string | null>(null);
@@ -75,31 +61,41 @@ export function UploadSection({ onUploadComplete }: UploadSectionProps) {
       setExpandedReasons({});
 
       const token = await user.getIdToken();
-      const documents = await manager.uploadDocuments(acceptedFiles, user.uid, token);
-      console.log('Raw documents:', documents);
+      const documents = await manager.uploadDocuments(
+        acceptedFiles, 
+        user.uid, 
+        token,
+        (progress, status) => {
+          setUploadProgress(progress);
+          console.log(`Upload progress: ${progress}% - ${status}`);
+        }
+      );
+      console.log('Raw documents from server:', JSON.stringify(documents, null, 2));
       
       // Transform the documents into the expected format
       const transformedResults = {
         document: documents[0], // Assuming we're handling one document at a time
         matchedRequirements: documents.map(doc => {
-          console.log('Processing document:', doc);
+          console.log('Processing document:', JSON.stringify(doc, null, 2));
           
           // If the document has classifications, use those
           if (doc.classifications && Array.isArray(doc.classifications)) {
             return doc.classifications.map((classification: any) => {
-              console.log('Processing classification:', classification);
+              console.log('Processing classification:', JSON.stringify(classification, null, 2));
               return {
                 documentId: doc.id,
                 requirementId: classification.requirementId || doc.id,
                 score: classification.score || 0,
                 confidence: classification.confidence || 'medium',
-                isMatched: classification.match || false,
+                isMatched: classification.isMatched || classification.match || false,
                 reason: classification.reason || classification.explanation || 'No reason provided',
                 threshold: 0.65,
-                vectorScore: classification.vectorScore || 0,
-                aiScore: classification.aiScore || 0,
-                requirement: classification.requirement || classification.name || 'Unnamed Requirement',
-                matchedContent: classification.matchedContent || []
+                vectorScore: classification.details?.scores?.vector || 0,
+                aiScore: classification.details?.scores?.ai || 0,
+                requirement: classification.requirementText || classification.requirement || classification.name || 'Unnamed Requirement',
+                requirementName: classification.requirementName || classification.name || 'Unnamed Requirement',
+                requirementDescription: classification.requirementDescription || classification.description || '',
+                matchedContent: classification.matchDetails || classification.matchedContent || []
               };
             });
           }
@@ -115,19 +111,21 @@ export function UploadSection({ onUploadComplete }: UploadSectionProps) {
             threshold: 0.65,
             vectorScore: doc.vectorScore || 0,
             aiScore: doc.aiScore || 0,
-            requirement: doc.requirement || doc.name || 'Unnamed Requirement',
+            requirement: doc.name || doc.requirement || 'Unnamed Requirement',
+            requirementName: doc.name || 'Unnamed Requirement',
+            requirementDescription: doc.description || '',
             matchedContent: []
           };
         }).flat() // Flatten the array of arrays
       };
       
-      console.log('Transformed results:', transformedResults);
+      console.log('Transformed results:', JSON.stringify(transformedResults, null, 2));
       setUploadResults(transformedResults);
       onUploadComplete(documents);
       setShowResults(true);
 
     } catch (err) {
-      console.error(err);
+      console.error('Upload error:', err);
       setError(err instanceof Error ? err.message : 'Upload failed');
     } finally {
       setUploading(false);
@@ -209,25 +207,22 @@ export function UploadSection({ onUploadComplete }: UploadSectionProps) {
                           )}
                           <div className="flex-grow">
                             <div className="flex flex-wrap items-center gap-2 mb-2">
-                              <span className="text-sm font-medium text-gray-900">
-                                {match.matchedContent || 'Unnamed Requirement'}
-                              </span>
-                            </div>
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className="text-sm font-medium text-gray-900">
-                                Score:
-                              </span>
-                              <span className="text-sm px-2 py-1 bg-gray-50 text-gray-700 rounded border">
-                                {Math.round(match.score)}%
-                              </span>
+                              <div className="flex flex-col">
+                                <span className="text-sm font-medium text-gray-900">
+                                  {match.requirementName || 'Unnamed Requirement'}
+                                </span>
+                                {match.requirementDescription && (
+                                  <span className="text-xs text-gray-500">
+                                    {match.requirementDescription}
+                                  </span>
+                                )}
+                              </div>
                               <span className={`text-xs px-2 py-1 rounded ${
-                                match.confidence === 'high' 
+                                match.isMatched 
                                   ? 'bg-green-100 text-green-800'
-                                  : match.confidence === 'medium'
-                                  ? 'bg-yellow-100 text-yellow-800'
                                   : 'bg-red-100 text-red-800'
                               }`}>
-                                {match.confidence} confidence
+                                {match.isMatched ? 'Matched' : 'Not Matched'}
                               </span>
                             </div>
                             
@@ -268,7 +263,7 @@ export function UploadSection({ onUploadComplete }: UploadSectionProps) {
                             {(!match.matchedContent || match.matchedContent.length === 0) && match.isMatched && (
                               <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded">
                                 <p className="text-sm text-yellow-800">
-                                  ⚠️ Warning: No specific content matches found in the document. This match might be incorrect.
+                                  ⚠️ Please verify the document to ensure it matches the requirement.
                                 </p>
                               </div>
                             )}

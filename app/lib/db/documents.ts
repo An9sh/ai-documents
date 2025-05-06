@@ -1,5 +1,5 @@
 import { db } from '../db';
-import { documents, users, classifications, requirements } from '../../../db/schema';
+import { documents, users, classifications, requirements, documentMatches } from '../../../db/schema';
 import { eq, and, notExists } from 'drizzle-orm';
 import { DocumentMetadata } from '../../types';
 import { v4 as uuidv4 } from 'uuid';
@@ -135,26 +135,32 @@ export async function getDocuments(userId: string): Promise<DocumentMetadata[]> 
   }
 }
 
-export async function deleteDocument(documentId: string, userId: string): Promise<void> {
+export async function deleteDocument(documentId: string, userId: string) {
   try {
-    if (!db) {
-      throw new Error('Database not initialized');
-    }
+    // 1. Delete document matches first
+    await db.delete(documentMatches)
+      .where(eq(documentMatches.documentId, documentId));
 
-    // 1. Update classifications to remove document reference
+    // 2. Update classifications to remove document reference
     await db.update(classifications)
-      .set({ [classifications.documentId.name]: null })
-      .where(and(
-        eq(classifications.documentId, documentId),
-        eq(classifications.userId, userId)
-      ));
+      .set({ documentId: null })
+      .where(
+        and(
+          eq(classifications.documentId, documentId),
+          eq(classifications.userId, userId)
+        )
+      );
 
-    // 2. Then delete the document
+    // 3. Delete the document
     await db.delete(documents)
-      .where(and(
-        eq(documents.id, documentId),
-        eq(documents.userId, userId)
-      ));
+      .where(
+        and(
+          eq(documents.id, documentId),
+          eq(documents.userId, userId)
+        )
+      );
+
+    return true;
   } catch (error) {
     console.error('Error deleting document:', error);
     throw error;

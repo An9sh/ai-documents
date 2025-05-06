@@ -35,11 +35,14 @@ export async function POST(req: Request) {
         hasRequirement: !!requirement
       });
 
+      // Ensure token is properly formatted
+      const authToken = `Bearer ${token}`;
       console.log('Processing question:', {
         userId,
         documentIds,
         environment: process.env.NODE_ENV,
-        apiUrl: process.env.NEXT_PUBLIC_API_URL
+        apiUrl: process.env.NEXT_PUBLIC_API_URL,
+        tokenLength: authToken.length
       });
 
       const analyzer = await DocumentAnalyzer.init();

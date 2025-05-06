@@ -22,9 +22,10 @@ export async function POST(request: Request) {
     if (!requirement) {
       return NextResponse.json({ error: 'Requirement is required' }, { status: 400 });
     }
-
+    console.log("Requirement:", requirement);
     // Use SyncService to handle the sync
     const result = await SyncService.syncRequirement(requirement, userId, token);
+    console.log("Sync result:", result);
     return NextResponse.json(result);
 
   } catch (error) {

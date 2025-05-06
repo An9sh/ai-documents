@@ -26,6 +26,7 @@ export class SearchService {
       const index = this.pinecone.index(this.indexName).namespace(userId);
       const queryEmbedding = await embedder.embed(query);
 
+      console.log("documentIds:", documentIds);
       // Query the index
       const queryResult = await index.query({
         vector: queryEmbedding.values,
@@ -39,6 +40,7 @@ export class SearchService {
         topK: 50,
       });
 
+      console.log("queryResult:", queryResult);
       // Group matches by document
       const uniqueDocuments = new Map<string, {
         documentId: string;
@@ -50,7 +52,7 @@ export class SearchService {
       queryResult.matches?.forEach(match => {
         const docId = match.metadata?.documentId as string;
         const filename = match.metadata?.filename as string;
-        const content = match.metadata?.text as string;
+        const content = match.metadata?.pageContent as string;
         
         if (!docId || !filename || !content) return;
 
@@ -86,18 +88,18 @@ export class SearchService {
           const isMatch = doc.vectorScore >= this.VECTOR_SCORE_THRESHOLD;
 
           // Get match reason from LLM
-          const reason = await this.getMatchReason(doc, requirement, isMatch);
+          const { match: llmMatch, reason } = await this.getMatchReason(doc, requirement, isMatch);
 
           return {
             documentId: doc.documentId,
             filename: doc.filename,
             vectorScore,
             finalScore: vectorScore, // Using vector score as final score
-            isMatch,
+            isMatch: llmMatch, // Use LLM's match decision instead of vector score
             matchDetails: [{
               vectorScore,
               finalScore: vectorScore,
-              match: isMatch,
+              match: llmMatch,
               reason,
               requirement: requirement.trim()
             }]
@@ -105,13 +107,15 @@ export class SearchService {
         })
       );
 
-      // Sort by final score
-      results.sort((a, b) => b.finalScore - a.finalScore);
+      // Filter out non-matching documents and sort by final score
+      const matchingResults = results
+        .filter(result => result.isMatch)
+        .sort((a, b) => b.finalScore - a.finalScore);
 
       return {
-        results,
-        total: results.length,
-        topMatch: results[0] || null
+        results: matchingResults,
+        total: matchingResults.length,
+        topMatch: matchingResults[0] || null
       };
     } catch (error) {
       console.error("Error in search service:", error);
@@ -128,7 +132,7 @@ export class SearchService {
     },
     requirement: string,
     isMatch: boolean
-  ): Promise<string> {
+  ): Promise<{ match: boolean; reason: string }> {
     const openai = new ChatOpenAI({
       openAIApiKey: process.env.OPENAI_API_KEY,
       modelName: "gpt-3.5-turbo",
@@ -144,21 +148,63 @@ export class SearchService {
     const chatResponse = await openai.invoke([
       {
         role: "system",
-        content: `You are a document analyzer that explains why a document matches or doesn't match a requirement.
-        Use the following context to explain the match or mismatch.
-        Focus on explaining the semantic relationship between the document content and the requirement.
-        Be specific about which parts of the requirement are met or not met.
-        Keep your explanation concise and factual.
-        Do not make up information, only use the context provided.
-        
-        Context: From "${doc.filename}":\n${topChunks}`,
+        content: `You are a document evaluator. Your task is to determine if a document meets a specific requirement.
+
+          Rules:
+          1. Base your evaluation ONLY on the actual content provided
+          2. Do not make assumptions or infer categories
+          3. If the document type is not explicitly mentioned in the content, do not guess
+          4. Be strict about categorization - a document must clearly belong to the required category
+          5. If in doubt, mark as not matching
+          6. Do not hallucinate or invent content that isn't present
+
+          Respond with a JSON object in this format:
+          {
+            "match": true|false,
+            "reason": "Clear explanation based only on the provided content"
+          }`
       },
       {
         role: "user",
-        content: `Requirement: ${requirement.trim()}\nVector similarity score: ${Math.round(doc.vectorScore * 100)}%\nIs match: ${isMatch}\nExplain why this document ${isMatch ? 'matches' : 'does not match'} the requirement.`,
+        content: `Requirement: ${requirement.trim()}
+Vector similarity score: ${Math.round(doc.vectorScore * 100)}%
+Document Content:
+${topChunks}
+
+Evaluate if this document meets the requirement. Be strict and only mark as match if the document clearly belongs to the required category.`
       }
     ]);
 
-    return chatResponse.content.toString();
+    try {
+      // Get the raw response text
+      const responseText = chatResponse.content.toString();
+      
+      // Extract JSON from the response, handling markdown code blocks
+      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        console.error("No JSON found in response:", responseText);
+        return { match: false, reason: "Error: Could not parse response" };
+      }
+
+      // Clean up the JSON string
+      const cleaned = jsonMatch[0]
+        .replace(/```json|```/g, '') // Remove markdown code block markers
+        .replace(/\n/g, ' ')         // Replace newlines with spaces
+        .replace(/\s+/g, ' ')        // Normalize whitespace
+        .trim();                     // Remove leading/trailing whitespace
+
+      // Parse the cleaned JSON
+      const response = JSON.parse(cleaned);
+      console.log("response:", response);
+      
+      // Return both match status and reason
+      return {
+        match: response.match || false,
+        reason: response.reason || "No reason provided"
+      };
+    } catch (error) {
+      console.error('Error parsing LLM response:', error);
+      return { match: false, reason: "Error evaluating document match" };
+    }
   }
 } 

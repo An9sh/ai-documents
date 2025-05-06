@@ -60,6 +60,8 @@ export interface ClassificationDetails {
       size: number;
       sectionCount?: number;
     };
+    requirementName: string;
+    requirementDescription: string;
   };
   scores: {
     vector: number;
@@ -72,15 +74,18 @@ export interface Classification {
   id: string;
   documentId: string;
   requirementId: string;
-  requirementText: string;
   userId: string;
+  requirementText: string;
+  requirementName: string;
+  requirementDescription: string;
   score: number;
-  confidence: ConfidenceLevel;
+  confidence: 'high' | 'medium' | 'low';
   isPrimary: boolean;
   isSecondary: boolean;
   isMatched: boolean;
   documentName: string;
   matchDetails: string[];
+  reason: string;
   details: {
     requirements: {
       matched: string[];
@@ -92,7 +97,7 @@ export interface Classification {
       lines: { from: number; to: number };
       userId: string;
       matchedAt: string;
-      confidence: ConfidenceLevel;
+      confidence: 'high' | 'medium' | 'low';
       matchedRequirements: string[];
       rawMatchReason: string;
       threshold: number;
@@ -101,15 +106,17 @@ export interface Classification {
         type: string;
         size: number;
       };
+      requirementName: string;
+      requirementDescription: string;
     };
     scores: {
       vector: number;
       ai: number;
       final: number;
     };
+    matchDetails: string[];
   };
-  aiAnalysis?: string;
-  updatedAt: string | number | Date;
+  updatedAt: Date;
 }
 
 export interface ClassificationData {

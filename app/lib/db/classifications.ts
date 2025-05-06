@@ -24,12 +24,15 @@ export async function getClassifications(documentId: string): Promise<Classifica
     documentId: cls.documentId?.toString() ?? '',
     requirementId: cls.requirementId?.toString() ?? '',
     requirementText: (cls.details as any)?.metadata?.rawMatchReason ?? '',
+    requirementName: (cls.details as any)?.metadata?.requirementName ?? '',
+    requirementDescription: (cls.details as any)?.metadata?.requirementDescription ?? '',
     userId: cls.userId?.toString() ?? '',
     score: cls.score,
     confidence: getConfidenceLevel(cls.confidence),
     isPrimary: cls.isPrimary,
     isSecondary: cls.isSecondary,
     isMatched: cls.isMatched,
+    reason: (cls.details as any)?.metadata?.rawMatchReason ?? '',
     details: {
       requirements: {
         matched: Array.isArray((cls.details as any)?.requirements?.matched) ? (cls.details as any).requirements.matched : [],
@@ -46,13 +49,18 @@ export async function getClassifications(documentId: string): Promise<Classifica
         rawMatchReason: (cls.details as any)?.metadata?.rawMatchReason ?? '',
         threshold: (cls.details as any)?.metadata?.threshold ?? 0,
         isMatched: cls.isMatched,
-        documentInfo: { type: 'document', size: 0 }
+        documentInfo: { type: 'document', size: 0 },
+        requirementName: (cls.details as any)?.metadata?.requirementName ?? '',
+        requirementDescription: (cls.details as any)?.metadata?.requirementDescription ?? ''
       },
       scores: {
         vector: (cls.details as any)?.scores?.vector ?? 0,
         ai: (cls.details as any)?.scores?.ai ?? 0,
         final: cls.score
-      }
+      },
+      matchDetails: Array.isArray((cls.details as any)?.requirements?.matched) 
+        ? (cls.details as any).requirements.matched 
+        : []
     },
     documentName: '',
     updatedAt: new Date(),
@@ -72,18 +80,18 @@ export async function createClassification(classification: Classification) {
     // Retry up to 3 times if document not found
     let retries = 0;
     while (!document && retries < 3) {
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
+      await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds
       document = await db.query.documents.findFirst({
         where: eq(documents.id, classification.documentId)
       });
       retries++;
     }
 
+    // If document still not found, throw error
     if (!document) {
-      throw new Error(`Document ${classification.documentId} not found after ${retries} retries`);
+      throw new Error(`Cannot create classification: Document ${classification.documentId} does not exist`);
     }
 
-    const id = nanoid();
     const confidence = classification.confidence === 'high' ? 3 :
       classification.confidence === 'medium' ? 2 :
       classification.confidence === 'low' ? 1 :
@@ -91,8 +99,8 @@ export async function createClassification(classification: Classification) {
     
     const result = await db.insert(classifications)
       .values({
-        id,
-        documentId: classification.documentId,
+        id: classification.id,  // Use the provided ID
+        documentId: classification.documentId,  // Use the document's ID
         requirementId: classification.requirementId,
         userId: classification.userId,
         score: classification.score,
@@ -140,12 +148,15 @@ export async function updateClassification(
     documentId: updatedClassification.documentId || '',
     requirementId: updatedClassification.requirementId || '',
     requirementText: (updatedClassification.details as any)?.metadata?.rawMatchReason ?? '',
+    requirementName: (updatedClassification.details as any)?.metadata?.requirementName ?? '',
+    requirementDescription: (updatedClassification.details as any)?.metadata?.requirementDescription ?? '',
     userId: updatedClassification.userId || '',
     score: updatedClassification.score,
     confidence: getConfidenceLevel(updatedClassification.score),
     isPrimary: updatedClassification.isPrimary,
     isSecondary: updatedClassification.isSecondary,
     isMatched: updatedClassification.isMatched,
+    reason: (updatedClassification.details as any)?.metadata?.rawMatchReason ?? '',
     details: {
       requirements: {
         matched: Array.isArray((updatedClassification.details as any)?.requirements?.matched) ? (updatedClassification.details as any).requirements.matched : [],
@@ -162,13 +173,18 @@ export async function updateClassification(
         rawMatchReason: (updatedClassification.details as any)?.metadata?.rawMatchReason ?? '',
         threshold: (updatedClassification.details as any)?.metadata?.threshold ?? 0,
         isMatched: updatedClassification.isMatched,
-        documentInfo: { type: 'document', size: 0 }
+        documentInfo: { type: 'document', size: 0 },
+        requirementName: (updatedClassification.details as any)?.metadata?.requirementName ?? '',
+        requirementDescription: (updatedClassification.details as any)?.metadata?.requirementDescription ?? ''
       },
       scores: {
         vector: (updatedClassification.details as any)?.scores?.vector ?? 0,
         ai: (updatedClassification.details as any)?.scores?.ai ?? 0,
         final: updatedClassification.score
-      }
+      },
+      matchDetails: Array.isArray((updatedClassification.details as any)?.requirements?.matched) 
+        ? (updatedClassification.details as any).requirements.matched 
+        : []
     },
     documentName: '',
     updatedAt: new Date(),
@@ -206,12 +222,15 @@ export async function getUserClassifications(userId: string): Promise<Classifica
     documentId: cls.documentId?.toString() ?? '',
     requirementId: cls.requirementId?.toString() ?? '',
     requirementText: (cls.details as any)?.metadata?.rawMatchReason ?? '',
+    requirementName: (cls.details as any)?.metadata?.requirementName ?? '',
+    requirementDescription: (cls.details as any)?.metadata?.requirementDescription ?? '',
     userId: cls.userId?.toString() ?? '',
     score: cls.score,
     confidence: getConfidenceLevel(cls.confidence),
     isPrimary: cls.isPrimary,
     isSecondary: cls.isSecondary,
     isMatched: cls.isMatched,
+    reason: (cls.details as any)?.metadata?.rawMatchReason ?? '',
     details: {
       requirements: {
         matched: Array.isArray((cls.details as any)?.requirements?.matched) ? (cls.details as any).requirements.matched : [],
@@ -228,13 +247,18 @@ export async function getUserClassifications(userId: string): Promise<Classifica
         rawMatchReason: (cls.details as any)?.metadata?.rawMatchReason ?? '',
         threshold: (cls.details as any)?.metadata?.threshold ?? 0,
         isMatched: cls.isMatched,
-        documentInfo: { type: 'document', size: 0 }
+        documentInfo: { type: 'document', size: 0 },
+        requirementName: (cls.details as any)?.metadata?.requirementName ?? '',
+        requirementDescription: (cls.details as any)?.metadata?.requirementDescription ?? ''
       },
       scores: {
         vector: (cls.details as any)?.scores?.vector ?? 0,
         ai: (cls.details as any)?.scores?.ai ?? 0,
         final: cls.score
-      }
+      },
+      matchDetails: Array.isArray((cls.details as any)?.requirements?.matched) 
+        ? (cls.details as any).requirements.matched 
+        : []
     },
     documentName: '',
     updatedAt: new Date(),

@@ -45,6 +45,8 @@ export class RequirementMatcher {
           documentId,
           requirementId: req.id,
           requirementText: req.description || req.name,
+          requirementName: req.name,
+          requirementDescription: req.description || '',
           userId,
           score: Math.round(finalScore),
           confidence: confidence as ConfidenceLevel,
@@ -53,6 +55,7 @@ export class RequirementMatcher {
           isMatched: documentInfo.matchDetails?.match === true,
           documentName: filename,
           matchDetails: match.content ? [match.content] : [],
+          reason: documentInfo.matchDetails?.reason || "No match found",
           details: {
             requirements: {
               matched: match.content ? [match.content] : [],
@@ -72,13 +75,16 @@ export class RequirementMatcher {
               documentInfo: {
                 type: 'document',
                 size: fileSize
-              }
+              },
+              requirementName: req.name,
+              requirementDescription: req.description || ''
             },
             scores: {
               vector: match.vectorScore || 0,
               ai: match.aiScore || 0,
               final: finalScore
-            }
+            },
+            matchDetails: match.content ? [match.content] : []
           },
           updatedAt: new Date()
         });
@@ -91,8 +97,11 @@ export class RequirementMatcher {
           confidence: dbClassification.confidence === 3 ? 'high' : 
                     dbClassification.confidence === 2 ? 'medium' : 'low',
           requirementText: req.description || req.name,
+          requirementName: req.name,
+          requirementDescription: req.description || '',
           documentName: filename,
           matchDetails: match.content ? [match.content] : [],
+          reason: documentInfo.matchDetails?.reason || "No match found",
           details: {
             requirements: {
               matched: match.content ? [match.content] : [],
@@ -112,13 +121,16 @@ export class RequirementMatcher {
               documentInfo: {
                 type: 'document',
                 size: fileSize
-              }
+              },
+              requirementName: req.name,
+              requirementDescription: req.description || ''
             },
             scores: {
               vector: match.vectorScore || 0,
               ai: match.aiScore || 0,
               final: finalScore
-            }
+            },
+            matchDetails: match.content ? [match.content] : []
           },
           updatedAt: dbClassification.updatedAt || new Date()
         };
