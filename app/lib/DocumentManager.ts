@@ -1,4 +1,4 @@
-import { Classification, DocumentMetadata } from '../types';
+import { DocumentMetadata } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 import { RequirementsClassifier } from '../api/requirements/route';
 import { getRequirements } from './db/requirements';
@@ -55,248 +55,272 @@ export class DocumentManager {
         formData.append('file', file);
         formData.append('userId', userId);
 
+        console.log('Starting upload for file:', {
+          filename: file.name,
+          size: file.size,
+          type: file.type,
+          baseUrl,
+          uploadId
+        });
+
         this.updateProgress(
           Math.round((i / files.length) * 100), 
           `Uploading ${file.name}...`,
           onProgress
         );
 
-        const response = await fetch(`${baseUrl}/api/process-document`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'X-Upload-Id': uploadId
-          },
-          body: formData
-        });
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error('Upload error:', {
-            status: response.status,
-            statusText: response.statusText,
-            error: errorText,
-            baseUrl,
-            uploadId
+        try {
+          const response = await fetch(`/api/process-document`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'X-Upload-Id': uploadId
+            },
+            body: formData
           });
-          throw new Error(`Failed to upload document: ${errorText || response.statusText}`);
-        }
 
-        const result = await response.json();
-        console.log('Process document response:', result);
-        
-        if (!result.documentId) {
-          console.error('Invalid server response:', result);
-          throw new Error('No document ID received from server');
-        }
+          console.log('Upload response status:', response.status);
 
-        // Create document metadata
-        const document: DocumentMetadata = {
-          id: result.documentId,
-          filename: file.name,
-          type: 'document',
-          size: file.size,
-          mimeType: file.type,
-          summary: '',
-          pageCount: 0,
-          pineconeId: result.documentId,
-          uploadedAt: new Date(),
-          fileSize: file.size,
-          namespace: userId,
-          fileKey: result.documentId
-        };
-
-        this.updateProgress(
-          Math.round(((i + 0.3) / files.length) * 100),
-          `Verifying document...`,
-          onProgress
-        );
-
-        // Verify document with retries
-        let isDocumentAvailable = false;
-        let retryCount = 0;
-        const maxRetries = 10;
-        const retryDelay = 2000;
-
-        while (!isDocumentAvailable && retryCount < maxRetries) {
-          try {
-            await new Promise(resolve => setTimeout(resolve, retryDelay));
-            
-            const verifyResponse = await fetch(
-              `${baseUrl}/api/verify-document?documentId=${result.documentId}`,
-              {
-                method: 'GET',
-                headers: {
-                  'Authorization': `Bearer ${token}`,
-                  'Content-Type': 'application/json'
-                },
-                cache: 'no-store'
-              }
-            );
-
-            if (!verifyResponse.ok) {
-              const errorText = await verifyResponse.text();
-              console.error('Verification error:', {
-                status: verifyResponse.status,
-                statusText: verifyResponse.statusText,
-                error: errorText,
-                documentId: result.documentId
-              });
-              throw new Error(`Document verification failed: ${errorText || verifyResponse.statusText}`);
-            }
-
-            const verifyResult = await verifyResponse.json();
-            if (verifyResult.available) {
-              isDocumentAvailable = true;
-              break;
-            }
-          } catch (error) {
-            console.error(`Verification attempt ${retryCount + 1} failed:`, error);
-            retryCount++;
-            if (retryCount < maxRetries) {
-              await new Promise(resolve => setTimeout(resolve, retryDelay));
-            }
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Upload error details:', {
+              status: response.status,
+              statusText: response.statusText,
+              error: errorText,
+              baseUrl,
+              uploadId,
+              headers: Object.fromEntries(response.headers.entries())
+            });
+            throw new Error(`Failed to upload document: ${errorText || response.statusText}`);
           }
-        }
 
-        if (!isDocumentAvailable) {
-          throw new Error('Document processing timeout. Please try again later.');
-        }
-
-        // Process requirements
-        this.updateProgress(
-          Math.round(((i + 0.5) / files.length) * 100),
-          `Processing requirements...`,
-          onProgress
-        );
-
-        if (isDocumentAvailable) {
-          const requirements = await getRequirements(userId);
+          const result = await response.json();
+          console.log('Process document response:', result);
           
-          const requirementClassifications = await Promise.all(
-            requirements.map(async (req) => {
-              try {
-                const question = RequirementsClassifier.buildQuestionForRequirement(req);
-                
-                const response = await fetch(`${baseUrl}/api/question`, {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                  },
-                  body: JSON.stringify({
-                    question,
-                    documentIds: [result.documentId],
-                    requirementId: req.id,
-                    requirement: req
-                  })
-                });
+          if (!result.documentId) {
+            console.error('Invalid server response:', result);
+            throw new Error('No document ID received from server');
+          }
 
-                if (!response.ok) {
-                  const errorText = await response.text();
-                  console.error('Question API error:', {
-                    status: response.status,
-                    statusText: response.statusText,
-                    error: errorText,
-                    documentId: result.documentId,
-                    requirementId: req.id
-                  });
-                  throw new Error(`Failed to process requirement: ${errorText || response.statusText}`);
-                }
+          // Create document metadata
+          const document: DocumentMetadata = {
+            id: result.documentId,
+            filename: file.name,
+            type: 'document',
+            size: file.size,
+            mimeType: file.type,
+            summary: '',
+            pageCount: 0,
+            pineconeId: result.documentId,
+            uploadedAt: new Date(),
+            fileSize: file.size,
+            namespace: userId,
+            fileKey: result.documentId
+          };
 
-                const data = await response.json();
-                console.log('Question API response:', data);
-                
-                // Extract matched content from the response
-                const matchedContent = data.matches?.map((match: any) => 
-                  match.content || match.metadata?.pageContent
-                ).filter(Boolean) || [];
-
-                // Create classification in database
-                const classification = await createClassification({
-                  id: uuidv4(),
-                  documentId: result.dbDocument.id,
-                  requirementId: req.id,
-                  requirementText: req.description || req.name,
-                  requirementName: req.name,
-                  requirementDescription: req.description,
-                  userId,
-                  score: data.score || 0,
-                  confidence: data.score > 80 ? 'high' : data.score > 60 ? 'medium' : 'low',
-                  isPrimary: data.isMatched && data.score >= req.matchThreshold,
-                  isSecondary: data.isMatched && data.score >= req.matchThreshold * 0.8,
-                  isMatched: data.isMatched || false,
-                  documentName: file.name,
-                  matchDetails: matchedContent,
-                  reason: data.reason || "No match found",
-                  details: {
-                    requirements: {
-                      matched: data.matchedRequirements || [],
-                      missing: data.missingRequirements || []
-                    },
-                    metadata: {
-                      documentId: result.dbDocument.id,
-                      filename: file.name,
-                      lines: data.lines || { from: 0, to: 0 },
-                      userId,
-                      matchedAt: new Date().toISOString(),
-                      confidence: data.score > 80 ? 'high' : data.score > 60 ? 'medium' : 'low',
-                      matchedRequirements: data.matchedRequirements || [],
-                      rawMatchReason: data.reason || "No match found",
-                      threshold: req.matchThreshold,
-                      isMatched: data.isMatched || false,
-                      documentInfo: {
-                        type: 'document',
-                        size: file.size
-                      },
-                      requirementName: req.name,
-                      requirementDescription: req.description || ''
-                    },
-                    scores: {
-                      vector: data.vectorScore || 0,
-                      ai: data.aiScore || 0,
-                      final: data.score || 0
-                    },
-                    matchDetails: matchedContent
-                  },
-                  updatedAt: new Date()
-                });
-
-                // If there's a match, create a document match record
-                if (data.isMatched) {
-                  await createDocumentMatch({
-                    documentId: result.dbDocument.id,
-                    classificationId: classification.id,
-                    matchPercentage: Math.round((data.score || 0) * 100),
-                    confidence: data.score > 80 ? 3 : data.score > 60 ? 2 : 1,
-                    matchedRequirements: data.matchedRequirements || [],
-                    rawMatchReason: data.reason || "No match found",
-                    isMatched: data.isMatched || false
-                  });
-                }
-
-                return {
-                  ...classification,
-                  requirementId: req.id,
-                  requirement: req.name,
-                  question,
-                  matchedContent: matchedContent,
-                  isMatched: data.isMatched || false,
-                  reason: data.reason || "No match found",
-                  score: data.score || 0
-                };
-              } catch (error) {
-                console.error('Error processing requirement:', error);
-                return null;
-              }
-            })
+          this.updateProgress(
+            Math.round(((i + 0.3) / files.length) * 100),
+            `Verifying document...`,
+            onProgress
           );
 
-          const validClassifications = requirementClassifications.filter(Boolean);
-          documents.push({
-            ...document,
-            classifications: validClassifications
+          // Verify document with retries
+          let isDocumentAvailable = false;
+          let retryCount = 0;
+          const maxRetries = 10;
+          const retryDelay = 2000;
+
+          while (!isDocumentAvailable && retryCount < maxRetries) {
+            try {
+              await new Promise(resolve => setTimeout(resolve, retryDelay));
+              
+              console.log(`Verification attempt ${retryCount + 1}/${maxRetries} for document:`, result.documentId);
+              
+              const verifyResponse = await fetch(
+                `${baseUrl}/api/verify-document?documentId=${result.documentId}`,
+                {
+                  method: 'GET',
+                  headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                  },
+                  cache: 'no-store'
+                }
+              );
+
+              if (!verifyResponse.ok) {
+                const errorText = await verifyResponse.text();
+                console.error('Verification error:', {
+                  status: verifyResponse.status,
+                  statusText: verifyResponse.statusText,
+                  error: errorText,
+                  documentId: result.documentId,
+                  attempt: retryCount + 1
+                });
+                throw new Error(`Document verification failed: ${errorText || verifyResponse.statusText}`);
+              }
+
+              const verifyResult = await verifyResponse.json();
+              console.log('Verification result:', verifyResult);
+              
+              if (verifyResult.available) {
+                isDocumentAvailable = true;
+                break;
+              }
+            } catch (error) {
+              console.error(`Verification attempt ${retryCount + 1} failed:`, error);
+              retryCount++;
+              if (retryCount < maxRetries) {
+                await new Promise(resolve => setTimeout(resolve, retryDelay));
+              }
+            }
+          }
+
+          if (!isDocumentAvailable) {
+            throw new Error('Document processing timeout. Please try again later.');
+          }
+
+          // Process requirements
+          this.updateProgress(
+            Math.round(((i + 0.5) / files.length) * 100),
+            `Processing requirements...`,
+            onProgress
+          );
+
+          if (isDocumentAvailable) {
+            const requirements = await getRequirements(userId);
+            
+            const requirementClassifications = await Promise.all(
+              requirements.map(async (req) => {
+                try {
+                  const question = RequirementsClassifier.buildQuestionForRequirement(req);
+                  
+                  const response = await fetch(`${baseUrl}/api/question`, {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                      question,
+                      documentIds: [result.documentId],
+                      requirementId: req.id,
+                      requirement: req
+                    })
+                  });
+
+                  if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('Question API error:', {
+                      status: response.status,
+                      statusText: response.statusText,
+                      error: errorText,
+                      documentId: result.documentId,
+                      requirementId: req.id
+                    });
+                    throw new Error(`Failed to process requirement: ${errorText || response.statusText}`);
+                  }
+
+                  const data = await response.json();
+                  console.log('Question API response:', data);
+                  
+                  // Extract matched content from the response
+                  const matchedContent = data.matches?.map((match: any) => 
+                    match.content || match.metadata?.pageContent
+                  ).filter(Boolean) || [];
+
+                  // Create classification in database
+                  const classification = await createClassification({
+                    id: uuidv4(),
+                    documentId: result.documentId,
+                    requirementId: req.id,
+                    requirementText: req.description || req.name,
+                    requirementName: req.name,
+                    requirementDescription: req.description,
+                    userId,
+                    score: data.score || 0,
+                    confidence: data.score > 80 ? 'high' : data.score > 60 ? 'medium' : 'low',
+                    isPrimary: data.isMatched && data.score >= req.matchThreshold,
+                    isSecondary: data.isMatched && data.score >= req.matchThreshold * 0.8,
+                    isMatched: data.isMatched || false,
+                    documentName: file.name,
+                    matchDetails: matchedContent,
+                    reason: data.reason || "No match found",
+                    details: {
+                      requirements: {
+                        matched: data.matchedRequirements || [],
+                        missing: data.missingRequirements || []
+                      },
+                      metadata: {
+                        documentId: result.documentId,
+                        filename: file.name,
+                        lines: data.lines || { from: 0, to: 0 },
+                        userId,
+                        matchedAt: new Date().toISOString(),
+                        confidence: data.score > 80 ? 'high' : data.score > 60 ? 'medium' : 'low',
+                        matchedRequirements: data.matchedRequirements || [],
+                        rawMatchReason: data.reason || "No match found",
+                        threshold: req.matchThreshold,
+                        isMatched: data.isMatched || false,
+                        documentInfo: {
+                          type: 'document',
+                          size: file.size
+                        },
+                        requirementName: req.name,
+                        requirementDescription: req.description || ''
+                      },
+                      scores: {
+                        vector: data.vectorScore || 0,
+                        ai: data.aiScore || 0,
+                        final: data.score || 0
+                      },
+                      matchDetails: matchedContent
+                    },
+                    updatedAt: new Date()
+                  });
+
+                  // If there's a match, create a document match record
+                  if (data.isMatched) {
+                    await createDocumentMatch({
+                      documentId: result.documentId,
+                      classificationId: classification.id,
+                      matchPercentage: Math.round((data.score || 0) * 100),
+                      confidence: data.score > 80 ? 3 : data.score > 60 ? 2 : 1,
+                      matchedRequirements: data.matchedRequirements || [],
+                      rawMatchReason: data.reason || "No match found",
+                      isMatched: data.isMatched || false
+                    });
+                  }
+
+                  return {
+                    ...classification,
+                    requirementId: req.id,
+                    requirement: req.name,
+                    question,
+                    matchedContent: matchedContent,
+                    isMatched: data.isMatched || false,
+                    reason: data.reason || "No match found",
+                    score: data.score || 0
+                  };
+                } catch (error) {
+                  console.error('Error processing requirement:', error);
+                  return null;
+                }
+              })
+            );
+
+            const validClassifications = requirementClassifications.filter(Boolean);
+            documents.push({
+              ...document,
+              classifications: validClassifications
+            });
+          }
+        } catch (error) {
+          console.error('Error processing file:', {
+            filename: file.name,
+            error: error instanceof Error ? error.message : error
           });
+          throw error;
         }
       }
 

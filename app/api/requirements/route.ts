@@ -50,7 +50,7 @@ static async fetchDocumentInformation(question: string, documentIds: string[], t
       throw new Error('Requirement not found');
     }
 
-    const apiUrl = `${baseUrl}/api/question`;
+    const apiUrl = `/api/question`;
     console.log('Fetching document information from:', apiUrl);
 
     // Format the token properly
