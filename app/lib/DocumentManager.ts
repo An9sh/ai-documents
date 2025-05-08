@@ -7,7 +7,6 @@ import { createClassification } from './db/classifications';
 
 export class DocumentManager {
   
-
   private updateProgress(progress: number, status: string, callback?: (progress: number, status: string) => void) {
 
     console.log(`Progress: ${progress}% - ${status}`);
@@ -221,7 +220,7 @@ export class DocumentManager {
                 req.id
               );
               console.log('Document info:', documentInfo);
-          try {
+           try {
             const match = documentInfo.matches[0];
             const vectorScore = match.score || 0;
             const aiScore = match.aiScore || 0;

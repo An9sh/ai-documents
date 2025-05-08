@@ -1,6 +1,6 @@
 import { db } from '../db';
-import { requirements } from '../../../db/schema';
-import { eq } from 'drizzle-orm';
+import { requirements, classifications } from '../../../db/schema';
+import { eq, and } from 'drizzle-orm';
 import { FilteringRequirements } from '../../types/filtering';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -84,9 +84,22 @@ export async function updateRequirement(id: string, requirement: Partial<Filteri
 
 export async function deleteRequirement(userId: string, requirementId: string): Promise<void> {
   try {
+    // 1. Delete all classifications associated with this requirement
+    await db.delete(classifications)
+      .where(
+        and(
+          eq(classifications.requirementId, requirementId),
+          eq(classifications.userId, userId)
+        )
+      );
+
+    // 2. Delete the requirement
     await db.delete(requirements)
       .where(
-        eq(requirements.id, requirementId)
+        and(
+          eq(requirements.id, requirementId),
+          eq(requirements.userId, userId)
+        )
       );
   } catch (error) {
     console.error('Error deleting requirement:', error);
