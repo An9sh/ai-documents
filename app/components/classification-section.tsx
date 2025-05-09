@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Disclosure } from '@headlessui/react';
-import { ChevronDownIcon, ChevronRightIcon, PlusIcon, DocumentTextIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { ChevronDownIcon, ChevronRightIcon, PlusIcon, DocumentTextIcon, XMarkIcon, ArrowDownTrayIcon } from '@heroicons/react/24/outline';
 import { Loader2 } from "lucide-react";
 import { Classification, DocumentMetadata, ClassificationRequirement, ConfidenceLevel } from '../types';
 import { useAuth } from '../contexts/auth-context';
@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../components/ui/alert-dialog";
+import RequirementsForm from './RequirementsForm';
 
 interface Category {
   id: string;
@@ -69,6 +70,7 @@ const RequirementsList = ({ requirements }: { requirements: string[] }) => {
 export function ClassificationSection({
   requirements,
   classifications,
+  onCreateRequirement,
   onSyncClassification,
   onUpdateRequirement,
   setGroupedResumes
@@ -87,6 +89,7 @@ export function ClassificationSection({
   const [syncResults, setSyncResults] = useState<SyncResults>({ matched: [], unmatched: [] });
   const [isLoading, setIsLoading] = useState(true);
   const [isCategoryLoading, setIsCategoryLoading] = useState<Map<string, boolean>>(new Map());
+  const [expandedRequirements, setExpandedRequirements] = useState<Set<string>>(new Set());
   const { user, getFreshToken } = useAuth();
 
   // Group classifications by requirement
@@ -126,6 +129,15 @@ export function ClassificationSection({
     };
     loadDocuments();
   }, [user]);
+
+  const handleCreateRequirement = async (requirement: ClassificationRequirement) => {
+        try {
+          await onCreateRequirement(requirement);
+          setIsCreateModalOpen(false);
+        } catch (error) {
+          console.error('Error creating requirement:', error);
+        }
+      };
 
 
   const handleSyncClick = async (requirement: ClassificationRequirement) => {
@@ -287,6 +299,72 @@ export function ClassificationSection({
     }
   };
 
+  const toggleRequirementExpansion = (requirementId: string) => {
+    setExpandedRequirements(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(requirementId)) {
+        newSet.delete(requirementId);
+      } else {
+        newSet.add(requirementId);
+      }
+      return newSet;
+    });
+  };
+
+  const downloadCSV = (requirement: ClassificationRequirement) => {
+    const requirementClassifications = groupedClassifications.get(requirement.id) || [];
+    
+    // Prepare CSV headers
+    const headers = [
+      'Document Name',
+      'Score',
+      'Confidence',
+      'Match Reason',
+      'Primary Match',
+      'Secondary Match',
+      'Matched Requirements',
+      'Document Type',
+      'Size (KB)',
+      'Matched At'
+    ];
+
+    // Prepare CSV rows
+    const rows = requirementClassifications.map(classification => {
+      const details = classification.details;
+      const metadata = details.metadata || {};
+      const scores = details.scores || { final: 0 };
+      
+      return [
+        classification.documentName || 'Unknown Document',
+        `${scores.final.toFixed(1)}%`,
+        metadata.confidence || 'Unknown',
+        metadata.rawMatchReason || 'No reason provided',
+        classification.isPrimary ? 'Yes' : 'No',
+        classification.isSecondary ? 'Yes' : 'No',
+        (metadata.matchedRequirements || []).join('; '),
+        metadata.documentInfo?.type || 'Unknown',
+        ((metadata.documentInfo?.size || 0) / 1024).toFixed(1),
+        metadata.matchedAt || 'Unknown'
+      ];
+    });
+
+    // Combine headers and rows
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+    ].join('\n');
+
+    // Create and trigger download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `${requirement.name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_classifications.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="space-y-6">
       <div className="mt-8">
@@ -311,7 +389,7 @@ export function ClassificationSection({
 
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+            <Loader2 className="h-12 w-12 animate-spin text-indigo-600" />
             <p className="mt-4 text-sm text-gray-500">Loading documents...</p>
           </div>
         ) : (
@@ -494,6 +572,15 @@ export function ClassificationSection({
                       )}
                       Sync
                     </button>
+                    {requirementClassifications.length > 0 && (
+                      <button
+                        onClick={() => downloadCSV(requirement)}
+                        className="inline-flex items-center rounded-md bg-white px-2.5 py-1.5 text-sm font-medium text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+                        title="Download CSV"
+                      >
+                        <ArrowDownTrayIcon className="h-4 w-4" />
+                      </button>
+                    )}
                     <Disclosure.Button className="p-1">
                       {open ? (
                         <ChevronDownIcon className="h-5 w-5 text-gray-500" />
@@ -530,110 +617,124 @@ export function ClassificationSection({
 
                     <div className="mt-4">
                       <h3 className="text-sm font-medium text-gray-900 mb-2">Matched Documents</h3>
-                          {requirementClassifications.length > 0 ? (
+                      {isLoading ? (
+                        <div className="flex items-center justify-center py-4">
+                          <Loader2 className="h-6 w-6 animate-spin text-indigo-600" />
+                          <span className="ml-2 text-sm text-gray-500">Loading documents...</span>
+                        </div>
+                      ) : requirementClassifications.length > 0 ? (
                         <div className="space-y-2">
-                              {requirementClassifications.map((classification) => {
-                                const details = classification.details;
-                                const scores = details.scores || { vector: 0, ai: 0, final: 0 };
-                                const metadata = details.metadata || {
-                                  documentId: '',
-                                  filename: '',
-                                  lines: { from: 0, to: 0 },
-                                  userId: '',
-                                  matchedAt: '',
-                                  confidence: 'low' as ConfidenceLevel,
-                                  matchedRequirements: [],
-                                  rawMatchReason: '',
-                                  threshold: 0,
-                                  isMatched: false,
-                                  documentInfo: { type: 'Unknown', size: 0 }
-                                };
-                                
-                                return (
-                                  <div key={classification.id} className="bg-white shadow rounded-lg p-4 mb-2 h-auto">
-                                <div className="flex items-center justify-between">
-                                        <div className="flex items-center space-x-2 flex-1 min-w-0">
-                                          <DocumentTextIcon className="h-5 w-5 flex-shrink-0 text-gray-400" />
-                                          <span className="font-medium text-gray-900 truncate" title={classification.documentName}>
-                                            {classification.documentName || 'Unknown Document'}
-                                          </span>
-                                  </div>
-                                        <div className="flex items-center space-x-2 flex-shrink-0">
-                                          {classification.isPrimary ? (
-                                            <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
-                                              Primary
-                                            </span>
-                                          ) : classification.isSecondary ? (
-                                            <span className="inline-flex items-center rounded-full bg-yellow-100 px-2.5 py-0.5 text-xs font-medium text-yellow-800">
-                                              Secondary
-                                            </span>
-                                          ) : (
-                                            <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-800">
-                                              Partial
-                                            </span>
-                                          )}
-                                          <span className={`text-sm font-medium ${
-                                            classification.score >= 75 ? 'text-green-600' : 'text-gray-600'
-                                          }`}>
-                                            {classification.score}%
-                                    </span>
-                                  </div>
+                          {requirementClassifications
+                            .slice(0, expandedRequirements.has(requirement.id) ? undefined : 5)
+                            .map((classification) => {
+                            const details = classification.details;
+                            const scores = details.scores || { vector: 0, ai: 0, final: 0 };
+                            const metadata = details.metadata || {
+                              documentId: '',
+                              filename: '',
+                              lines: { from: 0, to: 0 },
+                              userId: '',
+                              matchedAt: '',
+                              confidence: 'low' as ConfidenceLevel,
+                              matchedRequirements: [],
+                              rawMatchReason: '',
+                              threshold: 0,
+                              isMatched: false,
+                              documentInfo: { type: 'Unknown', size: 0 }
+                            };
+                            
+                            return (
+                            <div key={classification.id} className="bg-white shadow rounded-lg p-4 mb-2 h-auto">
+                            <div className="flex items-center justify-between">
+                                    <div className="flex items-center space-x-2 flex-1 min-w-0">
+                                      <DocumentTextIcon className="h-5 w-5 flex-shrink-0 text-gray-400" />
+                                      <span className="font-medium text-gray-900 truncate" title={classification.documentName}>
+                                        {classification.documentName || 'Unknown Document'}
+                                      </span>
                                 </div>
-
-                                      <Disclosure>
-                                        {({ open }) => (
-                                          <div>
-                                            <Disclosure.Button className="mt-2 flex w-full justify-between items-center text-left text-sm text-gray-500 hover:text-gray-700">
-                                              <span>Show details</span>
-                                              <ChevronRightIcon
-                                                className={`${
-                                                  open ? 'transform rotate-90' : ''
-                                                } h-5 w-5 text-gray-500`}
-                                              />
-                                            </Disclosure.Button>
-                                            <Disclosure.Panel className="mt-2 text-sm text-gray-600">
-                                              <div className="space-y-3">
-                                                <div className="flex justify-between items-center">
-                                                  <span className="font-medium">Match Scores:</span>
-                                                  <div className="space-x-4">
-                                                    {/* <span>Vector: {scores.vector.toFixed(1)}%</span>
-                                                    <span>AI: {scores.ai.toFixed(1)}%</span> */}
-                                                    <span className="font-medium">Final: {scores.final.toFixed(1)}%</span>
-                                                  </div>
-                                                </div>
-
-                                                <div>
-                                                  <span className="font-medium">Match Reason:</span>
-                                                  <p className="mt-1 text-gray-500">{metadata.rawMatchReason}</p>
-                                                </div>
-
-                                                {/* {metadata.matchedRequirements && metadata.matchedRequirements.length > 0 && (
-                                                  <div>
-                                                    <span className="font-medium">Matched Requirements:</span>
-                                                    <ul className="mt-1 list-disc list-inside">
-                                                      {metadata.matchedRequirements.map((req, idx) => (
-                                                        <li key={idx} className="text-gray-500">{req}</li>
-                                                      ))}
-                                                    </ul>
-                                                  </div>
-                                                )} */}
-
-                                                <div className="flex justify-between text-xs text-gray-500 border-t pt-2 mt-2">
-                                                  <span>Type: {metadata.documentInfo?.type || 'Unknown'}</span>
-                                                  <span>Size: {((metadata.documentInfo?.size || 0) / 1024).toFixed(1)} KB</span>
-                                        </div>
-                                      </div>
-                                            </Disclosure.Panel>
-                                          </div>
+                                      <div className="flex items-center space-x-2 flex-shrink-0">
+                                        {classification.isPrimary ? (
+                                          <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
+                                            Primary
+                                          </span>
+                                        ) : classification.isSecondary ? (
+                                          <span className="inline-flex items-center rounded-full bg-yellow-100 px-2.5 py-0.5 text-xs font-medium text-yellow-800">
+                                            Secondary
+                                          </span>
+                                        ) : (
+                                          <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-800">
+                                            Partial
+                                          </span>
                                         )}
-                                      </Disclosure>
-                                    </div>
-                                  );
-                                })}
+                                        <span className={`text-sm font-medium ${
+                                          classification.score >= 75 ? 'text-green-600' : 'text-gray-600'
+                                        }`}>
+                                          {classification.score}%
+                                  </span>
+                                </div>
                               </div>
-                            ) : (
-                              <p className="text-sm text-gray-500">No documents matched this requirement.</p>
-                            )}
+
+                                    <Disclosure>
+                                      {({ open }) => (
+                                        <div>
+                                          <Disclosure.Button className="mt-2 flex w-full justify-between items-center text-left text-sm text-gray-500 hover:text-gray-700">
+                                            <span>Show details</span>
+                                            <ChevronRightIcon
+                                              className={`${
+                                                open ? 'transform rotate-90' : ''
+                                              } h-5 w-5 text-gray-500`}
+                                            />
+                                          </Disclosure.Button>
+                                          <Disclosure.Panel className="mt-2 text-sm text-gray-600">
+                                            <div className="space-y-3">
+                                              <div className="flex justify-between items-center">
+                                                <span className="font-medium">Match Scores:</span>
+                                                <div className="space-x-4">
+                                                  <span className="font-medium">Final: {scores.final.toFixed(1)}%</span>
+                                                </div>
+                                              </div>
+
+                                              <div>
+                                                <span className="font-medium">Match Reason:</span>
+                                                <p className="mt-1 text-gray-500">{metadata.rawMatchReason}</p>
+                                              </div>
+
+                                              <div className="flex justify-between text-xs text-gray-500 border-t pt-2 mt-2">
+                                                <span>Type: {metadata.confidence || 'Unknown'}</span>
+                                                <span>Size: {(Number(metadata.matchedAt || 0) / 1024).toFixed(1)} KB</span>
+                                              </div>
+                                            </div>
+                                          </Disclosure.Panel>
+                                        </div>
+                                      )}
+                                    </Disclosure>
+                                  </div>
+                                );
+                              })}
+                              {requirementClassifications.length > 5 && !expandedRequirements.has(requirement.id) && (
+                                <div className="mt-2 text-center">
+                                  <button
+                                    onClick={() => toggleRequirementExpansion(requirement.id)}
+                                    className="text-sm text-indigo-600 hover:text-indigo-500"
+                                  >
+                                    Show {requirementClassifications.length - 5} more documents
+                                  </button>
+                                </div>
+                              )}
+                              {requirementClassifications.length > 5 && expandedRequirements.has(requirement.id) && (
+                                <div className="mt-2 text-center">
+                                  <button
+                                    onClick={() => toggleRequirementExpansion(requirement.id)}
+                                    className="text-sm text-indigo-600 hover:text-indigo-500"
+                                  >
+                                    Show less
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <p className="text-sm text-gray-500">No matched documents found.</p>
+                          )}
                     </div>
                   </div>
                 </Disclosure.Panel>
@@ -646,6 +747,18 @@ export function ClassificationSection({
       </>
     )}
   </div>
+  <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Create New Requirement</DialogTitle>
+          </DialogHeader>
+          <RequirementsForm
+            onSave={handleCreateRequirement}
+            onCancel={() => setIsCreateModalOpen(false)}
+            categories={categories}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 } 
