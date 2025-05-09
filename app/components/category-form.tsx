@@ -48,7 +48,7 @@ export default function CategoryForm({ category, onSave, onCancel }: CategoryFor
           id="name"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm bg-white"
           required
         />
       </div>
@@ -63,7 +63,7 @@ export default function CategoryForm({ category, onSave, onCancel }: CategoryFor
             id="color"
             value={color}
             onChange={(e) => setColor(e.target.value)}
-            className="h-8 w-8 rounded border border-gray-300"
+            className="h-8 w-8 rounded border border-gray-300 bg-white"
           />
           <input
             type="text"
@@ -71,25 +71,6 @@ export default function CategoryForm({ category, onSave, onCancel }: CategoryFor
             onChange={(e) => setColor(e.target.value)}
             className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
           />
-        </div>
-      </div>
-
-      <div>
-        <label htmlFor="threshold" className="block text-sm font-medium text-gray-700">
-          Default Match Threshold (%)
-        </label>
-        <div className="mt-1 flex items-center space-x-2">
-          <input
-            type="range"
-            id="threshold"
-            min="0"
-            max="100"
-            step="5"
-            value={threshold}
-            onChange={(e) => setThreshold(parseInt(e.target.value))}
-            className="flex-grow"
-          />
-          <span className="w-12 text-sm text-gray-500">{threshold}%</span>
         </div>
       </div>
 
