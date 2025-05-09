@@ -29,6 +29,7 @@ function SettingsContent() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [deleteDialogMessage, setDeleteDialogMessage] = useState('')
   const [categoryToDelete, setCategoryToDelete] = useState<string | null>(null)
+  const [requirementToDelete, setRequirementToDelete] = useState<string | null>(null)
   const MAX_REQUIREMENTS = 10
   const MAX_CATEGORIES = 5
 
@@ -172,15 +173,9 @@ function SettingsContent() {
 
   const handleDeleteRequirement = async (requirementId: string) => {
     if (!user) return;
-    const confirmed = window.confirm('Are you sure you want to delete this requirement?');
-    if (confirmed) {
-      try {
-        await deleteRequirement(user.uid, requirementId);
-        setRequirements(prev => prev.filter(req => req.id !== requirementId));
-      } catch (error) {
-        console.error('Error deleting requirement:', error);
-      }
-    }
+    setRequirementToDelete(requirementId);
+    setDeleteDialogMessage('Are you sure you want to delete this classification? This action cannot be undone.');
+    setShowDeleteDialog(true);
   };
 
   const handleCancelEdit = () => {
@@ -258,16 +253,22 @@ function SettingsContent() {
   };
 
   const handleConfirmDelete = async () => {
-    if (!user || !categoryToDelete) return;
+    if (!user) return;
     
     try {
-      await deleteCategory(user.uid, categoryToDelete);
-      setCustomCategories(prev => prev.filter(c => c.id !== categoryToDelete));
+      if (categoryToDelete) {
+        await deleteCategory(user.uid, categoryToDelete);
+        setCustomCategories(prev => prev.filter(c => c.id !== categoryToDelete));
+      } else if (requirementToDelete) {
+        await deleteRequirement(user.uid, requirementToDelete);
+        setRequirements(prev => prev.filter(req => req.id !== requirementToDelete));
+      }
     } catch (error) {
-      console.error('Error deleting category:', error);
+      console.error('Error deleting item:', error);
     } finally {
       setShowDeleteDialog(false);
       setCategoryToDelete(null);
+      setRequirementToDelete(null);
       setDeleteDialogMessage('');
     }
   };
@@ -391,6 +392,11 @@ function SettingsContent() {
               <button
                 type="button"
                 onClick={() => {
+                  if (customCategories.length === 0) {
+                    setDeleteDialogMessage('Please create a category first before creating a classification.');
+                    setShowDeleteDialog(true);
+                    return;
+                  }
                   if (requirements.length >= MAX_REQUIREMENTS) {
                     setDeleteDialogMessage(`You have reached the maximum limit of ${MAX_REQUIREMENTS} requirements. Please delete some existing requirements before creating new ones.`);
                     setShowDeleteDialog(true);
@@ -399,10 +405,20 @@ function SettingsContent() {
                   setCurrentRequirement(undefined);
                   setIsEditing(true);
                 }}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white ${
+                  customCategories.length === 0
+                    ? 'bg-gray-400 cursor-not-allowed'
+                    : 'bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500'
+                } relative group`}
               >
                 <PlusIcon className="-ml-1 mr-2 h-5 w-5" aria-hidden="true" />
                 Add New Classification
+                {customCategories.length === 0 && (
+                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 delay-100 w-64 pointer-events-none z-[100]">
+                    Create a category first before adding a classification
+                    <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-1/2 rotate-45 w-2 h-2 bg-gray-900"></div>
+                  </div>
+                )}
               </button>
             </div>
           </div>
@@ -535,7 +551,7 @@ function SettingsContent() {
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
             <div className="px-4 py-5 sm:p-6">
               <h3 className="text-lg font-medium text-gray-900 mb-4">
-                {categoryToDelete ? 'Delete Category' : 'Warning'}
+                {categoryToDelete ? 'Delete Category' : 'Delete Classification'}
               </h3>
               <p className="text-sm text-gray-500 mb-6">
                 {deleteDialogMessage}
@@ -545,20 +561,19 @@ function SettingsContent() {
                   onClick={() => {
                     setShowDeleteDialog(false);
                     setCategoryToDelete(null);
+                    setRequirementToDelete(null);
                     setDeleteDialogMessage('');
                   }}
                   className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                 >
-                  {categoryToDelete ? 'Cancel' : 'Close'}
+                  Cancel
                 </button>
-                {categoryToDelete && (
-                  <button
-                    onClick={handleConfirmDelete}
-                    className="px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                  >
-                    Delete
-                  </button>
-                )}
+                <button
+                  onClick={handleConfirmDelete}
+                  className="px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                >
+                  Delete
+                </button>
               </div>
             </div>
           </div>
