@@ -1,38 +1,50 @@
-import { db } from '../db';
+import { db } from '../../lib/db';
 import { progress } from '../../../db/schema';
 import { eq } from 'drizzle-orm';
 
-export async function createProgress(uploadId: string, userId: string) {
-  return await db.insert(progress).values({
-    id: uploadId,
-    userId,
-    status: 'uploading',
-    message: 'Starting upload...',
-    progress: 0
-  });
+export async function createProgress(uploadId: string, userId: string, fileId: string) {
+  const id = `${uploadId}-${fileId}`;
+  return await db
+    .insert(progress)
+    .values({
+      id,
+      uploadId,
+      userId,
+      fileId,
+      status: 'uploading',
+      progress: 0,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    })
+    .onConflictDoUpdate({
+      target: progress.id,
+      set: {
+        status: 'uploading',
+        progress: 0,
+        updatedAt: new Date()
+      }
+    });
 }
 
-export async function updateProgress(uploadId: string, data: {
-  status: 'uploading' | 'processing' | 'completed' | 'error';
-  message: string;
-  progress: number;
-}) {
+export async function updateProgress(id: string, status: 'uploading' | 'processing' | 'completed' | 'error', progressValue: number) {
   return await db
     .update(progress)
     .set({
-      status: data.status,
-      message: data.message,
-      progress: data.progress
+      status,
+      progress: progressValue,
+      updatedAt: new Date()
     })
-    .where(eq(progress.id, uploadId));
+    .where(eq(progress.id, id));
 }
 
-export async function getProgress(uploadId: string) {
-  const result = await db
-    .select()
-    .from(progress)
-    .where(eq(progress.id, uploadId))
-    .limit(1);
-  
-  return result[0] || null;
+export async function getProgress(id: string) {
+  return await db.query.progress.findFirst({
+    where: eq(progress.id, id)
+  });
+}
+
+export async function getUploadProgress(uploadId: string) {
+  return await db.query.progress.findMany({
+    where: eq(progress.uploadId, uploadId)
+  });
 } 

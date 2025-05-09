@@ -23,13 +23,17 @@ export async function PUT(
 
     const { id } = await params;
     const updateData = await request.json();
+    console.log('Update data:', updateData);
+    console.log('ID:', id);
 
     // Ensure createdAt is properly handled as a Date
     if (updateData.createdAt) {
       updateData.createdAt = new Date(updateData.createdAt);
     }
 
+
     const updatedRequirement = await updateRequirement(id, updateData);
+    console.log('Updated requirement:', updatedRequirement);
 
     return NextResponse.json(updatedRequirement);
   } catch (error) {

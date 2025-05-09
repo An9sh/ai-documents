@@ -24,6 +24,7 @@ export const categories = table(
     threshold: t.integer("threshold").notNull(),
     isCustom: t.boolean("is_custom").notNull().default(true),
     createdAt: t.timestamp("created_at").notNull().defaultNow(),
+    updatedAt: t.timestamp("updated_at").defaultNow(),
   },
   (table) => [
     t.index("categories_user_id_idx").on(table.userId)
@@ -119,12 +120,13 @@ export const progress = table(
   "progress",
   {
     id: t.varchar("id", { length: 255 }).primaryKey(),
+    uploadId: t.varchar("upload_id", { length: 255 }).notNull(),
+    fileId: t.varchar("file_id", { length: 255 }).notNull(),
     userId: t.varchar("user_id", { length: 255 }).notNull(),
     status: t.varchar("status", { enum: ['uploading', 'processing', 'completed', 'error'] }).notNull(),
-    message: t.varchar("message", { length: 255 }).notNull(),
-    progress: t.integer("progress").notNull(),
-    createdAt: t.timestamp("created_at").defaultNow().notNull(),
-    updatedAt: t.timestamp("updated_at").defaultNow().notNull(),
+    progress: t.integer("progress").notNull().default(0),
+    createdAt: t.timestamp("created_at").defaultNow(),
+    updatedAt: t.timestamp("updated_at").defaultNow(),
   },
   (table) => [
     t.index("progress_user_id_idx").on(table.userId)

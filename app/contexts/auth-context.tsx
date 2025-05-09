@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User } from 'firebase/auth';
-import { auth, onAuthStateChange } from '../lib/firebase';
+import { auth, onAuthStateChange, signInWithGoogle } from '../lib/firebase';
 import { useRouter } from 'next/navigation';
 
 interface AuthContextType {
@@ -10,6 +10,7 @@ interface AuthContextType {
   loading: boolean;
   error: Error | null;
   getFreshToken: () => Promise<string>;
+  signInWithGoogle: () => Promise<User>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -17,6 +18,9 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
   error: null,
   getFreshToken: async () => {
+    throw new Error('Auth context not initialized');
+  },
+  signInWithGoogle: async () => {
     throw new Error('Auth context not initialized');
   }
 });
@@ -46,7 +50,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [router]);
 
   return (
-    <AuthContext.Provider value={{ user, loading, error, getFreshToken }}>
+    <AuthContext.Provider value={{ user, loading, error, getFreshToken, signInWithGoogle }}>
       {children}
     </AuthContext.Provider>
   );

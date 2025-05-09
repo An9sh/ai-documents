@@ -4,13 +4,17 @@ import { DocumentProcessor } from '../../lib/services/document-processor';
 import { createDocument } from '../../lib/db/documents';
 import { ensureUserExists } from '../../lib/db/users';
 import { v4 as uuidv4 } from 'uuid';
-import { sendProgressUpdate } from '../../lib/upload-progress';
-import { createProgress } from '../../lib/db/progress';
+import { createProgress, updateProgress } from '../../lib/db/progress';
 
 export async function POST(request: Request) {
-  // Get upload ID from headers
+  // Get upload ID and file ID from headers
   const uploadId = request.headers.get('X-Upload-Id') || uuidv4();
+  const fileId = request.headers.get('X-File-Id');
   
+  if (!fileId) {
+    return NextResponse.json({ error: 'Missing file ID' }, { status: 400 });
+  }
+
   try {
     const formData = await request.formData();
     const file = formData.get("file") as unknown as { 
@@ -36,14 +40,7 @@ export async function POST(request: Request) {
     await ensureUserExists(userId, decodedToken.email || '', decodedToken.name || '');
 
     // Create initial progress record
-    await createProgress(uploadId, userId);
-
-    // Send initial progress update
-    await sendProgressUpdate(uploadId, { 
-      status: 'uploading',
-      message: 'Starting document upload...',
-      progress: 0
-    });
+    await createProgress(uploadId, userId, fileId);
 
     if (!file) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
@@ -65,22 +62,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Pinecone index name not configured" }, { status: 500 });
     }
 
-    sendProgressUpdate(uploadId, { 
-      status: 'processing',
-      message: 'Processing PDF document...',
-      progress: 20
-    });
+    // Update progress to processing
+    await updateProgress(`${uploadId}-${fileId}`, 'processing', 20);
 
     const documentId = uuidv4();
 
     try {
       const result = await DocumentProcessor.processDocument(file, userId, documentId);
       console.log('Document processing result:', result);
-      sendProgressUpdate(uploadId, { 
-        status: 'completed',
-        message: 'Document processing completed successfully',
-        progress: 100
-      });
+
+      // Update progress to completed
+      await updateProgress(`${uploadId}-${fileId}`, 'completed', 100);
 
       return NextResponse.json({ 
         success: true,
@@ -93,11 +85,8 @@ export async function POST(request: Request) {
     } catch (error) {
       console.error('Error in document processing:', error);
       
-      sendProgressUpdate(uploadId, { 
-        status: 'error',
-        message: error instanceof Error ? error.message : 'Failed to process document',
-        progress: 0
-      });
+      // Update progress to error
+      await updateProgress(`${uploadId}-${fileId}`, 'error', 0);
 
       return NextResponse.json(
         { 
@@ -111,11 +100,8 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error('Error in process-document route:', error);
     
-    sendProgressUpdate(uploadId, { 
-      status: 'error',
-      message: error instanceof Error ? error.message : 'Failed to process document',
-      progress: 0
-    });
+    // Update progress to error
+    await updateProgress(`${uploadId}-${fileId}`, 'error', 0);
 
     return NextResponse.json(
       { 

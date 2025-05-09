@@ -27,7 +27,12 @@ export function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           <div className="flex items-center space-x-4">
-            <h1 className="text-xl font-semibold text-gray-900">AI Documents</h1>
+            <button
+              onClick={() => router.push('/')}
+              className="text-xl font-semibold text-gray-900 hover:text-indigo-600 transition-colors duration-200"
+            >
+              AI Documents
+            </button>
             {user && (
               <div className="flex space-x-4">
                 <button

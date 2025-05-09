@@ -37,7 +37,8 @@ export function UploadSection({ onUploadComplete }: UploadSectionProps) {
   const [uploadResults, setUploadResults] = useState<{
     document: DocumentMetadata;
     matchedRequirements: MatchResult[];
-  } | null>(null);
+  }[]>([]);
+  const [selectedFileIndex, setSelectedFileIndex] = useState(0);
   const { user } = useAuth();
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
@@ -73,51 +74,54 @@ export function UploadSection({ onUploadComplete }: UploadSectionProps) {
       console.log('Raw documents from server:', JSON.stringify(documents, null, 2));
       
       // Transform the documents into the expected format
-      const transformedResults = {
-        document: documents[0], // Assuming we're handling one document at a time
-        matchedRequirements: documents.map(doc => {
-          console.log('Processing document:', JSON.stringify(doc, null, 2));
-          
-          // If the document has classifications, use those
-          if (doc.classifications && Array.isArray(doc.classifications)) {
-            return doc.classifications.map((classification: any) => {
+      const transformedResults = documents.map(doc => {
+        console.log('Processing document:', JSON.stringify(doc, null, 2));
+        
+        // If the document has classifications, use those
+        const matchedRequirements = doc.classifications && Array.isArray(doc.classifications) 
+          ? doc.classifications.map((classification: any) => {
               console.log('Processing classification:', JSON.stringify(classification, null, 2));
+              const details = classification.details || {};
+              const metadata = details.metadata || {};
+              const scores = details.scores || {};
+              
               return {
                 documentId: doc.id,
                 requirementId: classification.requirementId || doc.id,
                 score: classification.score || 0,
                 confidence: classification.confidence || 'medium',
-                isMatched: classification.isMatched || classification.match || false,
-                reason: classification.reason || classification.explanation || 'No reason provided',
-                threshold: 0.65,
-                vectorScore: classification.details?.scores?.vector || 0,
-                aiScore: classification.details?.scores?.ai || 0,
-                requirement: classification.requirementText || classification.requirement || classification.name || 'Unnamed Requirement',
-                requirementName: classification.requirementName || classification.name || 'Unnamed Requirement',
-                requirementDescription: classification.requirementDescription || classification.description || '',
-                matchedContent: classification.matchDetails || classification.matchedContent || []
+                isMatched: classification.isMatched || false,
+                reason: metadata.rawMatchReason || classification.reason || 'No reason provided',
+                threshold: metadata.threshold || 0.65,
+                vectorScore: scores.vector || 0,
+                aiScore: scores.ai || 0,
+                requirement: metadata.requirementName || classification.requirementText || 'Unnamed Requirement',
+                requirementName: metadata.requirementName || classification.requirementName || 'Unnamed Requirement',
+                requirementDescription: metadata.requirementDescription || classification.requirementDescription || '',
+                matchedContent: details.matchDetails || classification.matchDetails || []
               };
-            });
-          }
+            })
+          : [{
+              documentId: doc.id,
+              requirementId: doc.id,
+              score: doc.score || 0,
+              confidence: 'medium',
+              isMatched: doc.isMatched || false,
+              reason: 'No classifications available',
+              threshold: 0.65,
+              vectorScore: 0,
+              aiScore: 0,
+              requirement: 'No requirements available',
+              requirementName: 'No requirements available',
+              requirementDescription: '',
+              matchedContent: []
+            }];
 
-          // If no classifications, create a default match result
-          return {
-            documentId: doc.id,
-            requirementId: doc.id,
-            score: doc.score || 0,
-            confidence: 'medium',
-            isMatched: doc.isMatched || false,
-            reason: doc.reason || doc.explanation || 'No reason provided',
-            threshold: 0.65,
-            vectorScore: doc.vectorScore || 0,
-            aiScore: doc.aiScore || 0,
-            requirement: doc.name || doc.requirement || 'Unnamed Requirement',
-            requirementName: doc.name || 'Unnamed Requirement',
-            requirementDescription: doc.description || '',
-            matchedContent: []
-          };
-        }).flat() // Flatten the array of arrays
-      };
+        return {
+          document: doc,
+          matchedRequirements
+        };
+      });
       
       console.log('Transformed results:', JSON.stringify(transformedResults, null, 2));
       setUploadResults(transformedResults);
@@ -187,104 +191,132 @@ export function UploadSection({ onUploadComplete }: UploadSectionProps) {
               Document Analysis Results
             </Dialog.Title>
 
-            {uploadResults && (
+            {uploadResults && uploadResults.length > 0 && (
               <div className="space-y-4">
-                <div className="border-b pb-4">
-                  <h3 className="font-medium text-gray-900">Document Details</h3>
-                  <p className="text-sm text-gray-500">Filename: {uploadResults.document.filename}</p>
-                </div>
+                {/* File selector for multiple files */}
+                {uploadResults.length > 1 && (
+                  <div className="mb-4">
+                    <label htmlFor="file-selector" className="block text-sm font-medium text-gray-700 mb-1">
+                      Select Document
+                    </label>
+                    <select
+                      id="file-selector"
+                      value={selectedFileIndex}
+                      onChange={(e) => setSelectedFileIndex(Number(e.target.value))}
+                      className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                    >
+                      {uploadResults.map((result, index) => (
+                        <option key={index} value={index}>
+                          {result.document.filename}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
-                <div>
-                  <h3 className="font-medium text-gray-900 mb-2">Requirement Matches</h3>
-                  <div className="space-y-3">
-                    {uploadResults.matchedRequirements.map((match, index) => (
-                      <div key={index} className="flex flex-col p-4 bg-gray-50 rounded-lg">
-                        <div className="flex items-start space-x-3">
-                          {match.isMatched ? (
-                            <CheckCircleIcon className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
-                          ) : (
-                            <XCircleIcon className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
-                          )}
-                          <div className="flex-grow">
-                            <div className="flex flex-wrap items-center gap-2 mb-2">
-                              <div className="flex flex-col">
-                                <span className="text-sm font-medium text-gray-900">
-                                  {match.requirementName || 'Unnamed Requirement'}
-                                </span>
-                                {match.requirementDescription && (
-                                  <span className="text-xs text-gray-500">
-                                    {match.requirementDescription}
+                {/* Current file results */}
+                {uploadResults[selectedFileIndex] && (
+                  <>
+                    <div className="border-b pb-4">
+                      <h3 className="font-medium text-gray-900">Document Details</h3>
+                      <p className="text-sm text-gray-500">
+                        Filename: {uploadResults[selectedFileIndex].document.filename}
+                      </p>
+                    </div>
+
+                    <div>
+                      <h3 className="font-medium text-gray-900 mb-2">Requirement Matches</h3>
+                      <div className="space-y-3">
+                        {uploadResults[selectedFileIndex].matchedRequirements.map((match, index) => (
+                          <div key={index} className="flex flex-col p-4 bg-gray-50 rounded-lg">
+                            <div className="flex items-start space-x-3">
+                              {match.isMatched ? (
+                                <CheckCircleIcon className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
+                              ) : (
+                                <XCircleIcon className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
+                              )}
+                              <div className="flex-grow">
+                                <div className="flex flex-wrap items-center gap-2 mb-2">
+                                  <div className="flex flex-col">
+                                    <span className="text-sm font-medium text-gray-900">
+                                      {match.requirementName || 'Unnamed Requirement'}
+                                    </span>
+                                    {match.requirementDescription && (
+                                      <span className="text-xs text-gray-500">
+                                        {match.requirementDescription}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <span className={`text-xs px-2 py-1 rounded ${
+                                    match.isMatched 
+                                      ? 'bg-green-100 text-green-800'
+                                      : 'bg-red-100 text-red-800'
+                                  }`}>
+                                    {match.isMatched ? 'Matched' : 'Not Matched'}
                                   </span>
+                                </div>
+                                
+                                <div className="mt-2">
+                                  <button
+                                    onClick={() => {
+                                      const newExpandedReasons = { ...expandedReasons };
+                                      newExpandedReasons[index] = !newExpandedReasons[index];
+                                      setExpandedReasons(newExpandedReasons);
+                                    }}
+                                    className="flex items-center text-sm font-medium text-gray-900 hover:text-indigo-600"
+                                  >
+                                    <span>Match Reason</span>
+                                    <ChevronDownIcon
+                                      className={`h-4 w-4 ml-1 transition-transform ${
+                                        expandedReasons[index] ? 'transform rotate-180' : ''
+                                      }`}
+                                    />
+                                  </button>
+                                  {expandedReasons[index] && (
+                                    <p className="text-sm text-gray-600 mt-1">{match.reason}</p>
+                                  )}
+                                </div>
+
+                                {match.matchedContent && match.matchedContent.length > 0 && (
+                                  <div className="mt-2">
+                                    <p className="text-sm font-medium text-gray-900">Matched Content:</p>
+                                    <ul className="mt-1 space-y-1">
+                                      {match.matchedContent.map((content, idx) => (
+                                        <li key={idx} className="text-sm text-gray-600 pl-4 border-l-2 border-gray-200">
+                                          {content}
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
+
+                                {(!match.matchedContent || match.matchedContent.length === 0) && match.isMatched && (
+                                  <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded">
+                                    <p className="text-sm text-yellow-800">
+                                      ⚠️ Please verify the document to ensure it matches the requirement.
+                                    </p>
+                                  </div>
                                 )}
                               </div>
-                              <span className={`text-xs px-2 py-1 rounded ${
-                                match.isMatched 
-                                  ? 'bg-green-100 text-green-800'
-                                  : 'bg-red-100 text-red-800'
-                              }`}>
-                                {match.isMatched ? 'Matched' : 'Not Matched'}
-                              </span>
                             </div>
-                            
-                            <div className="mt-2">
-                              <button
-                                onClick={() => {
-                                  const newExpandedReasons = { ...expandedReasons };
-                                  newExpandedReasons[index] = !newExpandedReasons[index];
-                                  setExpandedReasons(newExpandedReasons);
-                                }}
-                                className="flex items-center text-sm font-medium text-gray-900 hover:text-indigo-600"
-                              >
-                                <span>Match Reason</span>
-                                <ChevronDownIcon
-                                  className={`h-4 w-4 ml-1 transition-transform ${
-                                    expandedReasons[index] ? 'transform rotate-180' : ''
-                                  }`}
-                                />
-                              </button>
-                              {expandedReasons[index] && (
-                                <p className="text-sm text-gray-600 mt-1">{match.reason}</p>
-                              )}
-                            </div>
-
-                            {match.matchedContent && match.matchedContent.length > 0 && (
-                              <div className="mt-2">
-                                <p className="text-sm font-medium text-gray-900">Matched Content:</p>
-                                <ul className="mt-1 space-y-1">
-                                  {match.matchedContent.map((content, idx) => (
-                                    <li key={idx} className="text-sm text-gray-600 pl-4 border-l-2 border-gray-200">
-                                      {content}
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
-
-                            {(!match.matchedContent || match.matchedContent.length === 0) && match.isMatched && (
-                              <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded">
-                                <p className="text-sm text-yellow-800">
-                                  ⚠️ Please verify the document to ensure it matches the requirement.
-                                </p>
-                              </div>
-                            )}
                           </div>
-                        </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="flex justify-end mt-6">
-                  <button
-                    type="button"
-                    className="inline-flex justify-center rounded-md border border-transparent bg-indigo-100 px-4 py-2 text-sm font-medium text-indigo-900 hover:bg-indigo-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
-                    onClick={() => setShowResults(false)}
-                  >
-                    Close
-                  </button>
-                </div>
+                    </div>
+                  </>
+                )}
               </div>
             )}
+
+            <div className="mt-6 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowResults(false)}
+                className="inline-flex justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+              >
+                Close
+              </button>
+            </div>
           </Dialog.Panel>
         </div>
       </Dialog>

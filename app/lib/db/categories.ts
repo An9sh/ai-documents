@@ -36,8 +36,17 @@ export async function updateCategory(userId: string, categoryId: string, categor
         ...category,
         userId // Ensure we keep the original user
       })
-      .where(eq(categories.id, categoryId))
+      .where(
+        and(
+          eq(categories.id, categoryId),
+          eq(categories.userId, userId)
+        )
+      )
       .returning();
+
+    if (!updatedCategory) {
+      throw new Error('Category not found or unauthorized');
+    }
 
     return updatedCategory;
   } catch (error) {

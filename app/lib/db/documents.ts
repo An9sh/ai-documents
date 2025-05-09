@@ -10,6 +10,15 @@ export async function createDocument(document: Omit<DocumentMetadata, 'id'> & { 
       throw new Error('Database not initialized');
     }
 
+    // Check if user has reached the document limit
+    const userDocuments = await db.select()
+      .from(documents)
+      .where(eq(documents.userId, userId));
+
+    if (userDocuments.length >= 50) {
+      throw new Error('You have reached the maximum limit of 50 documents. Please delete some documents before uploading more.');
+    }
+
     // Check if user exists
     const [user] = await db.select()
       .from(users)

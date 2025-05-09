@@ -18,6 +18,8 @@ export default function RequirementsForm({ requirement, onSave, onCancel, catego
 
   const [matchThreshold, setMatchThreshold] = useState(requirement?.matchThreshold || 70);
   const [newRequirement, setNewRequirement] = useState('');
+  const [showWarning, setShowWarning] = useState(false);
+  const MAX_REQUIREMENTS = 10;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,15 +44,22 @@ export default function RequirementsForm({ requirement, onSave, onCancel, catego
   };
 
   const handleAddRequirement = () => {
+    if (requirements.length >= MAX_REQUIREMENTS) {
+      setShowWarning(true);
+      return;
+    }
+    
     if (newRequirement.trim() !== '') {
       setRequirements([...requirements, newRequirement]);
       setNewRequirement('');
+      setShowWarning(false);
     }
   };
 
   const handleRemoveRequirement = (index: number) => {
     const newRequirements = requirements.filter((_, i) => i !== index);
     setRequirements(newRequirements);
+    setShowWarning(false);
   };
 
   return (
@@ -102,7 +111,7 @@ export default function RequirementsForm({ requirement, onSave, onCancel, catego
 
       <div>
         <label htmlFor="requirements" className="block text-sm font-medium text-gray-700">
-          Requirements
+          Requirements ({requirements.length}/{MAX_REQUIREMENTS})
         </label>
         <div className="mt-1">
           <div className="flex space-x-2">
@@ -113,15 +122,26 @@ export default function RequirementsForm({ requirement, onSave, onCancel, catego
               onKeyPress={(e) => e.key === 'Enter' && handleAddRequirement()}
               className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
               placeholder="Add a requirement"
+              disabled={requirements.length >= MAX_REQUIREMENTS}
             />
             <button
               type="button"
               onClick={handleAddRequirement}
-              className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              disabled={requirements.length >= MAX_REQUIREMENTS}
+              className={`inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white ${
+                requirements.length >= MAX_REQUIREMENTS 
+                  ? 'bg-gray-400 cursor-not-allowed' 
+                  : 'bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500'
+              }`}
             >
               Add
             </button>
           </div>
+          {showWarning && (
+            <p className="mt-2 text-sm text-red-600">
+              Maximum limit of {MAX_REQUIREMENTS} requirements reached. Please remove some requirements before adding more.
+            </p>
+          )}
           <div className="mt-2 space-y-2">
             {requirements.map((req, index) => (
               <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded-md">
