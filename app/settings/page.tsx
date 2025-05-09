@@ -10,6 +10,7 @@ import CategoryForm from '../components/category-form'
 import { useAuth } from '../contexts/auth-context'
 import { getRequirements, createRequirement, updateRequirement, deleteRequirement } from '../lib/db/requirements'
 import { getCategories, createCategory, updateCategory, deleteCategory } from '../lib/db/categories'
+import { DocumentTextIcon } from '@heroicons/react/24/outline'
 
 function SettingsContent() {
   const router = useRouter()
@@ -297,39 +298,65 @@ function SettingsContent() {
             </div>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {allCategories.map((category) => (
-                <div key={category.id} className="bg-white shadow rounded-lg overflow-hidden">
-                  <div className="px-4 py-5 sm:p-6">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center">
-                        <div 
-                          className="w-3 h-3 rounded-full mr-2" 
-                          style={{ backgroundColor: category.color }}
-                        />
-                        <h3 className="text-lg font-medium text-gray-900">{category.name}</h3>
-                      </div>
-                      <div className="flex space-x-2">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setCurrentCategory(category)
-                            setIsEditingCategory(true)
-                          }}
-                          className="text-indigo-600 hover:text-indigo-900"
-                        >
-                          <PencilIcon className="h-5 w-5" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteCategory(category.id)}
-                          className="text-red-600 hover:text-red-900"
-                        >
-                          <TrashIcon className="h-5 w-5" />
-                        </button>
+              {allCategories.length === 0 ? (
+                <div className="col-span-full text-center py-12 bg-white rounded-lg shadow">
+                  <div className="mx-auto h-12 w-12 text-gray-400">
+                    <svg className="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                    </svg>
+                  </div>
+                  <h3 className="mt-2 text-sm font-medium text-gray-900">No Categories</h3>
+                  <p className="mt-1 text-sm text-gray-500">
+                    Get started by creating a new category to organize your classifications.
+                  </p>
+                  <div className="mt-6">
+                    <button
+                      onClick={() => {
+                        setCurrentCategory(undefined);
+                        setIsEditingCategory(true);
+                      }}
+                      className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700"
+                    >
+                      <PlusIcon className="-ml-1 mr-2 h-5 w-5" aria-hidden="true" />
+                      Add Category
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                allCategories.map((category) => (
+                  <div key={category.id} className="bg-white shadow rounded-lg overflow-hidden">
+                    <div className="px-4 py-5 sm:p-6">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center">
+                          <div 
+                            className="w-3 h-3 rounded-full mr-2" 
+                            style={{ backgroundColor: category.color }}
+                          />
+                          <h3 className="text-lg font-medium text-gray-900">{category.name}</h3>
+                        </div>
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setCurrentCategory(category)
+                              setIsEditingCategory(true)
+                            }}
+                            className="text-indigo-600 hover:text-indigo-900"
+                          >
+                            <PencilIcon className="h-5 w-5" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteCategory(category.id)}
+                            className="text-red-600 hover:text-red-900"
+                          >
+                            <TrashIcon className="h-5 w-5" />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
 
@@ -382,57 +409,82 @@ function SettingsContent() {
 
           {/* Classification Boards */}
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {filteredRequirements.map((requirement) => (
-              <div key={requirement.id} className="bg-white shadow rounded-lg overflow-hidden">
-                <div className="px-4 py-5 sm:p-6">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-medium text-gray-900">{requirement.name}</h3>
-                    <div className="flex space-x-2">
-                      <button
-                        onClick={() => {
-                          setCurrentRequirement(requirement);
-                          setIsEditing(true);
-                        }}
-                        className="text-indigo-600 hover:text-indigo-900"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => handleDeleteRequirement(requirement.id)}
-                        className="text-red-600 hover:text-red-900"
-                      >
-                        <TrashIcon className="h-5 w-5" />
-                      </button>
-                    </div>
-                  </div>
-                  <p className="mt-1 text-sm text-gray-500">{requirement.description}</p>
-                  
-                  <div className="mt-4">
+            {filteredRequirements.length === 0 ? (
+              <div className="col-span-full text-center py-12 bg-white rounded-lg shadow">
+                <DocumentTextIcon className="mx-auto h-12 w-12 text-gray-400" />
+                <h3 className="mt-2 text-sm font-medium text-gray-900">No Classifications</h3>
+                <p className="mt-1 text-sm text-gray-500">
+                  {activeCategory === 'all' 
+                    ? "Get started by creating a new classification requirement."
+                    : "No classifications found in this category. Create a new one or switch to a different category."}
+                </p>
+                <div className="mt-6">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCurrentRequirement(undefined);
+                      setIsEditing(true);
+                    }}
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700"
+                  >
+                    <PlusIcon className="-ml-1 mr-2 h-5 w-5" aria-hidden="true" />
+                    Add New Classification
+                  </button>
+                </div>
+              </div>
+            ) : (
+              filteredRequirements.map((requirement) => (
+                <div key={requirement.id} className="bg-white shadow rounded-lg overflow-hidden">
+                  <div className="px-4 py-5 sm:p-6">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-gray-700">Match Threshold</span>
-                      <span className="text-sm text-gray-500">{requirement.matchThreshold}%</span>
+                      <h3 className="text-lg font-medium text-gray-900">{requirement.name}</h3>
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={() => {
+                            setCurrentRequirement(requirement);
+                            setIsEditing(true);
+                          }}
+                          className="text-indigo-600 hover:text-indigo-900"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDeleteRequirement(requirement.id)}
+                          className="text-red-600 hover:text-red-900"
+                        >
+                          <TrashIcon className="h-5 w-5" />
+                        </button>
+                      </div>
                     </div>
-                    <div className="mt-2">
-                      <input
-                        type="range"
-                        min="0"
-                        max="100"
-                        value={requirement.matchThreshold}
-                        onChange={(e) => {
-                          const updatedRequirements = requirements.map(req =>
-                            req.id === requirement.id
-                              ? { ...req, matchThreshold: parseInt(e.target.value) }
-                              : req
-                          );
-                          setRequirements(updatedRequirements);
-                        }}
-                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                      />
+                    <p className="mt-1 text-sm text-gray-500">{requirement.description}</p>
+                    
+                    <div className="mt-4">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-gray-700">Match Threshold</span>
+                        <span className="text-sm text-gray-500">{requirement.matchThreshold}%</span>
+                      </div>
+                      <div className="mt-2">
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          value={requirement.matchThreshold}
+                          onChange={(e) => {
+                            const updatedRequirements = requirements.map(req =>
+                              req.id === requirement.id
+                                ? { ...req, matchThreshold: parseInt(e.target.value) }
+                                : req
+                            );
+                            setRequirements(updatedRequirements);
+                          }}
+                          className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
       </div>
