@@ -29,6 +29,7 @@ export async function POST(req: Request) {
 
       // Get other data from request body
       const { question, documentIds, requirement } = await req.json();
+      console.log('Question route - Question:', question);
       console.log('Question route - Request body:', { 
         hasQuestion: !!question,
         documentIds,

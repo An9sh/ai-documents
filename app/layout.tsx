@@ -20,7 +20,7 @@ const geistMono = localFont({
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: "AI Documents",
+  title: "DocuMatch",
   description: "AI-powered document management system",
 };
 

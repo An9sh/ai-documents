@@ -1,6 +1,6 @@
 import { db } from '../db';
-import { requirements, classifications } from '../../../db/schema';
-import { eq, and } from 'drizzle-orm';
+import { requirements, classifications, documentMatches} from '../../../db/schema';
+import { eq, and, inArray } from 'drizzle-orm';
 import { FilteringRequirements } from '../../types/filtering';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -84,7 +84,26 @@ export async function updateRequirement(id: string, requirement: Partial<Filteri
 
 export async function deleteRequirement(userId: string, requirementId: string): Promise<void> {
   try {
-    // 1. Delete all classifications associated with this requirement
+    // 1. Delete all classifications associated with this requirement  
+    const classificationRows = await db
+      .select({ id: classifications.id })
+      .from(classifications)
+      .where(
+        and(
+          eq(classifications.requirementId, requirementId),
+          eq(classifications.userId, userId)
+        )
+      );
+
+    const classificationIds = classificationRows.map(row => row.id);
+
+    if (classificationIds.length > 0) {
+      // 2. Delete all document_matches for these classifications
+      await db.delete(documentMatches)
+        .where(inArray(documentMatches.classificationId, classificationIds));
+    }
+
+    // 3. Delete all classifications associated with this requirement
     await db.delete(classifications)
       .where(
         and(
@@ -93,14 +112,15 @@ export async function deleteRequirement(userId: string, requirementId: string): 
         )
       );
 
-    // 2. Delete the requirement
+       // 4. Delete the requirement
     await db.delete(requirements)
-      .where(
-        and(
-          eq(requirements.id, requirementId),
-          eq(requirements.userId, userId)
-        )
-      );
+    .where(
+      and(
+        eq(requirements.id, requirementId),
+        eq(requirements.userId, userId)
+      )
+    );
+      
   } catch (error) {
     console.error('Error deleting requirement:', error);
     throw error;

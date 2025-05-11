@@ -13,10 +13,15 @@ interface Match {
 
 export class RequirementsClassifier {
   static buildQuestionForRequirement(requirement: any) {
-    const baseQuestion = `Analyse the content of the document and match them to the following requirements: "${requirement.name} and ${requirement.description}"?`;
+    // Get category name from the category object if it exists
+    const categoryName = requirement.category?.name || requirement.categoryName || '';
+    const categoryInfo = categoryName ? `in the category "${categoryName}"` : '';
+    
+    // Build a more natural question
+    const baseQuestion = `Analyse the document content and determine if it matches the following requirement: "${requirement.name}" ${categoryInfo}. ${requirement.description ? `Description: ${requirement.description}` : ''}`;
     
     if (requirement.requirements && requirement.requirements.length > 0) {
-      return `${baseQuestion} Specifically looking for documents that mention: ${requirement.requirements.join(', ')}`;
+      return `${baseQuestion} The document should specifically mention: ${requirement.requirements.join(', ')}`;
     }
 
     return baseQuestion;

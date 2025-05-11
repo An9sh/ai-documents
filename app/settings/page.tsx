@@ -174,7 +174,7 @@ function SettingsContent() {
   const handleDeleteRequirement = async (requirementId: string) => {
     if (!user) return;
     setRequirementToDelete(requirementId);
-    setDeleteDialogMessage('Are you sure you want to delete this classification? This action cannot be undone.');
+    setDeleteDialogMessage('Are you sure you want to delete this classification? \n All the documents associated with this classification will also be deleted. This action cannot be undone.');
     setShowDeleteDialog(true);
   };
 
