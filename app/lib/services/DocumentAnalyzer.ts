@@ -161,7 +161,11 @@ export class DocumentAnalyzer {
     const messages = [
       {
         role: "system",
-        content: `You are a document evaluator. Based only on the provided context, determine whether the document meets the specified requirement. Respond strictly with a JSON object including "match" (true/false) and a short "reason". Do not assume or invent content.`,
+        content: `You are a document evaluator. Based only on the provided context, 
+        determine whether the document meets the specified requirement. 
+        If available, Analyse the requirements or else document Description and at last document title.
+        Respond strictly with a JSON object including "match" (true/false) and a short "reason". 
+        Do not assume or invent content.`
       },
       {
         role: "user",
