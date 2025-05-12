@@ -40,7 +40,7 @@ export class SearchService {
         topK: 50,
       });
 
-      console.log("queryResult:", queryResult);
+      console.log("queryResult:", query);
       // Group matches by document
       const uniqueDocuments = new Map<string, {
         documentId: string;
@@ -88,7 +88,7 @@ export class SearchService {
           const isMatch = doc.vectorScore >= this.VECTOR_SCORE_THRESHOLD;
 
           // Get match reason from LLM
-          const { match: llmMatch, reason } = await this.getMatchReason(doc, requirement, isMatch);
+          const { match: llmMatch, reason } = await this.getMatchReason(doc, query, isMatch);
 
           return {
             documentId: doc.documentId,
@@ -130,7 +130,7 @@ export class SearchService {
       vectorScore: number;
       chunks: Array<{ content: string; score: number }>;
     },
-    requirement: string,
+    query: string,
     isMatch: boolean
   ): Promise<{ match: boolean; reason: string }> {
     const openai = new ChatOpenAI({
@@ -148,30 +148,21 @@ export class SearchService {
     const chatResponse = await openai.invoke([
       {
         role: "system",
-        content: `You are a document evaluator. Your task is to determine if a document meets a specific requirement.
-
-          Rules:
-          1. Base your evaluation ONLY on the actual content provided
-          2. Do not make assumptions or infer categories
-          3. If the document type is not explicitly mentioned in the content, do not guess
-          4. Be strict about categorization - a document must clearly belong to the required category
-          5. If in doubt, mark as not matching
-          6. Do not hallucinate or invent content that isn't present
-
-          Respond with a JSON object in this format:
-          {
-            "match": true|false,
-            "reason": "Clear explanation based only on the provided content"
-          }`
+        content: `You are a document evaluator. Based only on the provided context, 
+        determine whether the document meets the specified requirement. 
+        If available, Analyse the requirements or else document Description and at last document title.
+        Respond strictly with a JSON object including "match" (true/false) and a short "reason". 
+        Do not assume or invent content.`
       },
       {
         role: "user",
-        content: `Requirement: ${requirement.trim()}
-Vector similarity score: ${Math.round(doc.vectorScore * 100)}%
-Document Content:
-${topChunks}
-
-Evaluate if this document meets the requirement. Be strict and only mark as match if the document clearly belongs to the required category.`
+        content: `Document: ${doc.filename}
+        Requirement: ${query}
+        Vector similarity score: ${Math.round(doc.vectorScore * 100)}%
+        Document Content:
+        ${topChunks}
+        Does the document meet the requirement? Respond with ONLY a JSON object like this:
+        {"match": true|false, "reason": "..."}`
       }
     ]);
 

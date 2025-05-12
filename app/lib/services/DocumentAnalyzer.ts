@@ -149,7 +149,7 @@ export class DocumentAnalyzer {
   }
 
   private async getLLMExplanation(
-    requirement: string,
+    question: string,
     context: string,
     score: number
   ): Promise<{ reason: string; match: boolean }> {
@@ -165,7 +165,7 @@ export class DocumentAnalyzer {
       },
       {
         role: "user",
-        content: `Requirement: ${requirement}
+        content: `${question}
         Vector similarity score: ${Math.round(score * 100)}%
         Context:
         ${context}
