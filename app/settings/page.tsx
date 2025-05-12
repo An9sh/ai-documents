@@ -11,6 +11,7 @@ import { useAuth } from '../contexts/auth-context'
 import { getRequirements, createRequirement, updateRequirement, deleteRequirement } from '../lib/db/requirements'
 import { getCategories, createCategory, updateCategory, deleteCategory } from '../lib/db/categories'
 import { DocumentTextIcon } from '@heroicons/react/24/outline'
+import { ensureUserExists } from '../lib/db/users'
 
 function SettingsContent() {
   const router = useRouter()
@@ -38,6 +39,9 @@ function SettingsContent() {
     const loadData = async () => {
       if (!user) return;
       try {
+        // Ensure user exists in database
+        await ensureUserExists(user.uid, user.email || '', user.displayName || '');
+
         // Load requirements
         const reqs = await getRequirements(user.uid);
         setRequirements(reqs);
