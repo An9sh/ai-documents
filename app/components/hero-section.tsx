@@ -99,7 +99,7 @@ export default function HeroSection() {
           <div className="relative">
             <div className="absolute -inset-4 rounded-2xl bg-gradient-to-r from-indigo-100 to-indigo-200 opacity-20 blur-xl"></div>
             <img
-              src="/dashboard-preview.png"
+              src="/app_screenshot.png"
               alt="App screenshot"
               width={2432}
               height={1442}

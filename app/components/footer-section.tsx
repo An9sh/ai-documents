@@ -51,19 +51,19 @@ const navigation = {
 const contactInfo = [
   {
     name: 'Email',
-    value: 'contact@example.com',
+    value: 'hello@documatch.ai',
     icon: EnvelopeIcon,
   },
-  {
-    name: 'Phone',
-    value: '+1 (555) 123-4567',
-    icon: PhoneIcon,
-  },
-  {
-    name: 'Address',
-    value: '123 Innovation Street, Tech City, TC 12345',
-    icon: MapPinIcon,
-  },
+//   {
+//     name: 'Phone',
+//     value: '+1 (555) 123-4567',
+//     icon: PhoneIcon,
+//   },
+//   {
+//     name: 'Address',
+//     value: '123 Innovation Street, Tech City, TC 12345',
+//     icon: MapPinIcon,
+//   },
 ];
 
 export default function FooterSection() {
